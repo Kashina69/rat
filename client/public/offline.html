@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#0f172a" />
+        <title>DMS Depot — Offline</title>
+        <style>
+            * { box-sizing: border-box; }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #020617;
+                color: #e2e8f0;
+                font-family: system-ui, -apple-system, sans-serif;
+                padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
+            }
+            main { max-width: 28rem; text-align: center; }
+            h1 { font-size: 1.75rem; margin: 0 0 0.5rem; }
+            h1 span { color: #fbbf24; }
+            p { font-size: 1.125rem; color: #94a3b8; line-height: 1.6; }
+            button {
+                min-height: 52px;
+                padding: 0.75rem 1.75rem;
+                font-size: 1.125rem;
+                font-weight: 700;
+                border: 0;
+                border-radius: 0.75rem;
+                background: #f59e0b;
+                color: #020617;
+                cursor: pointer;
+                margin-top: 1rem;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>DMS <span>Depot</span></h1>
+            <p>
+                You are offline. The app shell is available but no depot data
+                is shown — reconnect to sign in and see live inventory.
+            </p>
+            <button type="button" onclick="window.location.reload()">Retry connection</button>
+        </main>
+    </body>
+</html>
