@@ -1,4 +1,5 @@
 import { db } from "../../config/db.js";
+import { emitToRooms, getIo, roomsForSheds } from "../../config/socket.js";
 import type { RequestUser } from "../../types/domain.js";
 import { writeAudit } from "../../utils/audit.js";
 import { ApiError } from "../../utils/errors.js";
@@ -77,6 +78,19 @@ export async function createVisit(input: CreateVisitInput, gateUserId: number) {
         where: { id: created.id },
         include: visitInclude,
     });
+    const at = new Date().toISOString();
+    const rooms = roomsForSheds(
+        full.requirementLines.map((line) => line.shed.code),
+    );
+    emitToRooms(getIo(), rooms, "requirement.created", {
+        visitId: full.id,
+        at,
+    });
+    emitToRooms(getIo(), rooms, "visit.statusChanged", {
+        visitId: full.id,
+        status: full.status,
+        at,
+    });
     return { visit: toVisitDto(full), warnings };
 }
 
@@ -139,7 +153,18 @@ export async function cancelVisit(visitId: number, userId: number) {
         });
         return updated;
     });
-    return toVisitDto(visit);
+    const dto = toVisitDto(visit);
+    emitToRooms(
+        getIo(),
+        roomsForSheds(dto.lines.map((line) => line.shed.code)),
+        "visit.statusChanged",
+        {
+            visitId: dto.id,
+            status: dto.status,
+            at: new Date().toISOString(),
+        },
+    );
+    return dto;
 }
 
 export async function cancelLine(lineId: number, userId: number) {
@@ -203,7 +228,19 @@ export async function cancelLine(lineId: number, userId: number) {
         });
         return full;
     });
-    return toLineDto(line);
+    const dto = toLineDto(line);
+    const at = new Date().toISOString();
+    const visit = await db.visit.findUnique({
+        where: { id: dto.visitId },
+        select: { status: true },
+    });
+    emitToRooms(
+        getIo(),
+        roomsForSheds([(dto.shed as { code: string }).code]),
+        "visit.statusChanged",
+        { visitId: dto.visitId, status: visit?.status ?? null, at },
+    );
+    return dto;
 }
 
 export async function confirmLine(
@@ -354,7 +391,40 @@ export async function confirmLine(
         });
         return full;
     });
-    return toLineDto(line);
+    const dto = toLineDto(line);
+    const at = new Date().toISOString();
+    const confirmedVisit = await db.visit.findUnique({
+        where: { id: dto.visitId },
+        include: {
+            requirementLines: {
+                select: { shed: { select: { code: true } } },
+            },
+        },
+    });
+    const confirmedRooms = roomsForSheds([
+        (dto.shed as { code: string }).code,
+        ...(confirmedVisit?.requirementLines.map((row) => row.shed.code) ?? []),
+    ]);
+    emitToRooms(getIo(), confirmedRooms, "loading.confirmed", {
+        lineId: dto.id,
+        visitId: dto.visitId,
+        itemId: dto.itemId,
+        at,
+    });
+    emitToRooms(getIo(), confirmedRooms, "visit.statusChanged", {
+        visitId: dto.visitId,
+        status: confirmedVisit?.status ?? null,
+        at,
+    });
+    emitToRooms(getIo(), confirmedRooms, "stock.updated", {
+        itemId: dto.itemId,
+        at,
+    });
+    emitToRooms(getIo(), confirmedRooms, "inventory.changed", {
+        itemId: dto.itemId,
+        at,
+    });
+    return dto;
 }
 
 export async function checkoutVisit(visitId: number, userId: number) {
@@ -424,5 +494,12 @@ export async function checkoutVisit(visitId: number, userId: number) {
         });
         return full;
     });
-    return toVisitDto(visit);
+    const dto = toVisitDto(visit);
+    emitToRooms(
+        getIo(),
+        roomsForSheds(dto.lines.map((line) => line.shed.code)),
+        "visit.statusChanged",
+        { visitId: dto.id, status: dto.status, at: new Date().toISOString() },
+    );
+    return dto;
 }

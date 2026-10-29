@@ -1,4 +1,5 @@
 import { db } from "../../config/db.js";
+import { emitToRooms, getIo, roomsForSheds } from "../../config/socket.js";
 import { writeAudit } from "../../utils/audit.js";
 import { ApiError } from "../../utils/errors.js";
 import type {
@@ -76,7 +77,12 @@ export async function createItem(input: CreateItemInput, userId: number) {
         });
         return created;
     });
-    return toItemDto(item);
+    const dto = toItemDto(item);
+    const at = new Date().toISOString();
+    const rooms = roomsForSheds([(dto.shed as { code: string }).code]);
+    emitToRooms(getIo(), rooms, "stock.updated", { itemId: dto.id, at });
+    emitToRooms(getIo(), rooms, "inventory.changed", { itemId: dto.id, at });
+    return dto;
 }
 
 async function getItemOrThrow(itemId: number) {
@@ -240,7 +246,12 @@ export async function stockIn(
             include: itemInclude,
         });
     });
-    return toItemDto(item);
+    const dto = toItemDto(item);
+    const at = new Date().toISOString();
+    const rooms = roomsForSheds([(dto.shed as { code: string }).code]);
+    emitToRooms(getIo(), rooms, "stock.updated", { itemId: dto.id, at });
+    emitToRooms(getIo(), rooms, "inventory.changed", { itemId: dto.id, at });
+    return dto;
 }
 
 export async function adjustStock(
@@ -291,5 +302,18 @@ export async function adjustStock(
             include: itemInclude,
         });
     });
-    return toItemDto(item);
+    const adjusted = toItemDto(item);
+    const adjustedAt = new Date().toISOString();
+    const adjustedRooms = roomsForSheds([
+        (adjusted.shed as { code: string }).code,
+    ]);
+    emitToRooms(getIo(), adjustedRooms, "stock.updated", {
+        itemId: adjusted.id,
+        at: adjustedAt,
+    });
+    emitToRooms(getIo(), adjustedRooms, "inventory.changed", {
+        itemId: adjusted.id,
+        at: adjustedAt,
+    });
+    return adjusted;
 }

@@ -1,9 +1,13 @@
+import { createServer } from "node:http";
 import { createApp } from "./app.js";
+import { attachSocket } from "./config/socket.js";
 import { env } from "./env.js";
 
 const app = createApp();
+const httpServer = createServer(app);
+attachSocket(httpServer);
 
-const server = app.listen(env.port, env.host, () => {
+const server = httpServer.listen(env.port, env.host, () => {
     console.log(
         `Server listening on http://${env.host}:${env.port} (${env.nodeEnv})`,
     );
