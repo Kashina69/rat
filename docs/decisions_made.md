@@ -1,0 +1,31 @@
+# Decisions Made
+
+- Auth: JWT access-only, no refresh tokens
+- Passwords: bcrypt, 12 rounds
+- Token life: ~8h (one shift)
+- Token stored in memory (Context), not localStorage
+- Role + shedCode inside JWT payload
+- Auth guard: `auth` middleware + `requireRole()` fn
+- Shed users scoped to own shed only
+- Realtime: Socket.IO, no polling/SSE
+- Rooms: `shed:{code}`, `gate`, `admin`
+- Write DB first, then push socket event
+- Short stock: warn, don't block
+- Checkout: strict, blocked until all sheds confirm (409 if not)
+- Stock: never update without ledger row
+- Double-confirm blocked (409, no double deduct)
+- Seed: 2 sheds + ~10 items + admin/gate/shed users
+- Backend: Express 5 + TypeScript strict
+- DB: MySQL + Prisma, transactions for stock ops
+- Validation: zod on all inputs
+- Response shape: `{ data }` / `{ error: { code, message } }`
+- Security: helmet, CORS whitelist, login rate-limit
+- No classes/OOP, pure functions only
+- Pattern: route → controller → service → prisma
+- Files split by category, single-responsibility
+- Frontend: Next.js 16 + Tailwind + shadcn
+- Data fetching: TanStack Query for all server state
+- Client state: React Context (auth + socket)
+- Zustand: only if Context outgrows, not in POC
+- Lint/format: Biome, `tsc --noEmit` clean
+- Docs: `specs_document.md` + `implementation_plan.md` in `docs/`
