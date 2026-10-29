@@ -21,9 +21,9 @@ function snapshot(
 
 export function useNetworkStatus(pollMs = 15_000) {
     const { connection } = useSocket();
-    const [browserOnline, setBrowserOnline] = useState(
-        () => typeof navigator === "undefined" || navigator.onLine,
-    );
+    // Assume online on first render so SSR and hydration match exactly.
+    // The real browser state syncs in the effect below, right after mount.
+    const [browserOnline, setBrowserOnline] = useState(true);
     const [apiReachable, setApiReachable] = useState<boolean | null>(null);
     const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
 
@@ -34,6 +34,7 @@ export function useNetworkStatus(pollMs = 15_000) {
     }, []);
 
     useEffect(() => {
+        setBrowserOnline(navigator.onLine);
         const onOnline = () => {
             setBrowserOnline(true);
             void check();

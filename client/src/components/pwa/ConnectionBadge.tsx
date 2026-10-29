@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useSocket } from "@/providers/socket-provider";
 import { Badge } from "../ui/badge";
@@ -7,6 +8,13 @@ import { Badge } from "../ui/badge";
 export function ConnectionBadge() {
     const { state, lastCheckedAt } = useNetworkStatus();
     const { lastSyncAt } = useSocket();
+    // Rendered only after mount: Date().toLocaleTimeString() differs by
+    // machine/locale, so it must never appear in the SSR/hydration pass.
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const variant =
         state === "online"
@@ -21,7 +29,7 @@ export function ConnectionBadge() {
               ? "Degraded"
               : "Offline";
 
-    const syncTime = lastSyncAt ?? lastCheckedAt;
+    const syncTime = mounted ? (lastSyncAt ?? lastCheckedAt) : null;
     const syncLabel = syncTime
         ? ` · synced ${new Date(syncTime).toLocaleTimeString()}`
         : "";
