@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-    const passwordHash = await bcrypt.hash("password123", 12);
+    const passwordHash = await bcrypt.hash("Password@123", 12);
 
     const shedA = await prisma.shed.upsert({
         where: { code: "SHED-A" },
