@@ -2,3 +2,4 @@
 .env
 next-env.d.ts
 /.next
+tsconfig.tsbuildinfo
