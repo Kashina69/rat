@@ -1,4 +1,4 @@
-import type { AuthResponse, LoginInput } from "@/types/api";
+import type { AuthResponse, LoginInput, Pagination } from "@/types/api";
 
 export type ApiError = Error & { code: string; status: number };
 
@@ -65,6 +65,72 @@ export async function apiFetch<T>(
         );
     }
     return body?.data as T;
+}
+
+export async function apiFetchPaginated<T>(
+    path: string,
+    init?: RequestInit,
+): Promise<{ data: T; pagination: Pagination }> {
+    const token = getToken();
+    const res = await fetch(`${apiBase()}${path}`, {
+        ...init,
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...init?.headers,
+        },
+    });
+    if (res.status === 401) {
+        onUnauthorized();
+        throw createApiError(
+            "UNAUTHORIZED",
+            "Session expired. Please log in again.",
+            401,
+        );
+    }
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+        throw createApiError(
+            body?.error?.code ?? "REQUEST_FAILED",
+            body?.error?.message ?? `Request failed (${res.status})`,
+            res.status,
+        );
+    }
+    return {
+        data: body?.data as T,
+        pagination: body?.pagination as Pagination,
+    };
+}
+
+export async function apiFetchBlob(
+    path: string,
+    init?: RequestInit,
+): Promise<Blob> {
+    const token = getToken();
+    const res = await fetch(`${apiBase()}${path}`, {
+        ...init,
+        headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...init?.headers,
+        },
+    });
+    if (res.status === 401) {
+        onUnauthorized();
+        throw createApiError(
+            "UNAUTHORIZED",
+            "Session expired. Please log in again.",
+            401,
+        );
+    }
+    if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw createApiError(
+            body?.error?.code ?? "REQUEST_FAILED",
+            body?.error?.message ?? `Request failed (${res.status})`,
+            res.status,
+        );
+    }
+    return res.blob();
 }
 
 export function loginRequest(input: LoginInput): Promise<AuthResponse> {
