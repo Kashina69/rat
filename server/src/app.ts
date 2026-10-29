@@ -1,33 +1,26 @@
 import cors from "cors";
-import express, {
-    type NextFunction,
-    type Request,
-    type Response,
-} from "express";
+import express, { type Request, type Response } from "express";
 import helmet from "helmet";
+import { env } from "./config/env.js";
+import { errorHandler, notFound } from "./middlewares/errorHandler.js";
+import { authRoutes } from "./modules/auth/auth.routes.js";
 
 export function createApp() {
     const app = express();
 
     app.disable("x-powered-by");
     app.use(helmet());
-    app.use(cors());
+    app.use(cors({ origin: env.corsOrigin }));
     app.use(express.json());
 
     app.get("/health", (_req: Request, res: Response) => {
-        res.json({ status: "ok", uptime: process.uptime() });
+        res.json({ data: { status: "ok", uptime: process.uptime() } });
     });
 
-    app.use((_req: Request, res: Response) => {
-        res.status(404).json({ error: "Not Found" });
-    });
+    app.use("/api/auth", authRoutes);
 
-    app.use(
-        (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-            console.error(err);
-            res.status(500).json({ error: "Internal Server Error" });
-        },
-    );
+    app.use(notFound);
+    app.use(errorHandler);
 
     return app;
 }
