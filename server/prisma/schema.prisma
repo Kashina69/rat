@@ -1,0 +1,153 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "mysql"
+    url      = env("DATABASE_URL")
+}
+
+enum Role {
+    ADMIN
+    GATE
+    SHED
+}
+
+enum VisitStatus {
+    AWAITING_LOADING
+    PARTIALLY_LOADED
+    READY_FOR_CHECKOUT
+    CHECKED_OUT
+    CANCELLED
+}
+
+enum RequirementLineStatus {
+    PENDING
+    LOADED
+    CANCELLED
+}
+
+enum LedgerType {
+    OPENING
+    IN
+    OUT
+    ADJUST
+}
+
+model Shed {
+    id               Int               @id @default(autoincrement())
+    name             String
+    code             String            @unique
+    users            User[]
+    items            Item[]
+    requirementLines RequirementLine[]
+
+    @@map("sheds")
+}
+
+model User {
+    id                Int          @id @default(autoincrement())
+    name              String
+    username          String       @unique
+    passwordHash      String
+    role              Role
+    shedId            Int?
+    shed              Shed?        @relation(fields: [shedId], references: [id])
+    gateVisits        Visit[]      @relation("GateUser")
+    checkoutVisits    Visit[]      @relation("CheckoutUser")
+    confirmedLines    RequirementLine[]
+    ledgerEntries     StockLedger[]
+    auditEvents       AuditEvent[]
+
+    @@map("users")
+}
+
+model Item {
+    id               Int               @id @default(autoincrement())
+    name             String
+    category         String
+    unit             String
+    shedId           Int
+    shed             Shed              @relation(fields: [shedId], references: [id])
+    currentStock     Int               @default(0)
+    reorderLevel     Int               @default(0)
+    isActive         Boolean           @default(true)
+    requirementLines RequirementLine[]
+    ledgerEntries    StockLedger[]
+
+    @@index([shedId])
+    @@map("items")
+}
+
+model Visit {
+    id                Int               @id @default(autoincrement())
+    vehicleNumber     String
+    driverName        String
+    party             String
+    status            VisitStatus       @default(AWAITING_LOADING)
+    arrivalAt         DateTime          @default(now())
+    checkoutAt        DateTime?
+    cancelledAt       DateTime?
+    gateUserId        Int
+    gateUser          User              @relation("GateUser", fields: [gateUserId], references: [id])
+    checkoutByUserId  Int?
+    checkoutByUser    User?             @relation("CheckoutUser", fields: [checkoutByUserId], references: [id])
+    requirementLines  RequirementLine[]
+    ledgerEntries     StockLedger[]
+
+    @@index([status])
+    @@map("visits")
+}
+
+model RequirementLine {
+    id                 Int                   @id @default(autoincrement())
+    visitId            Int
+    visit              Visit                 @relation(fields: [visitId], references: [id])
+    itemId             Int
+    item               Item                  @relation(fields: [itemId], references: [id])
+    shedId             Int
+    shed               Shed                  @relation(fields: [shedId], references: [id])
+    requestedQty       Int
+    loadedQty          Int?
+    status             RequirementLineStatus @default(PENDING)
+    confirmedByUserId  Int?
+    confirmedByUser    User?                 @relation(fields: [confirmedByUserId], references: [id])
+    confirmedAt        DateTime?
+    ledgerEntry        StockLedger?
+
+    @@unique([visitId, itemId])
+    @@index([visitId, shedId, status])
+    @@map("requirement_lines")
+}
+
+model StockLedger {
+    id                 Int             @id @default(autoincrement())
+    itemId             Int
+    item               Item            @relation(fields: [itemId], references: [id])
+    requirementLineId  Int?            @unique
+    requirementLine    RequirementLine? @relation(fields: [requirementLineId], references: [id])
+    visitId            Int?
+    visit              Visit?          @relation(fields: [visitId], references: [id])
+    actorUserId        Int
+    actorUser          User            @relation(fields: [actorUserId], references: [id])
+    type               LedgerType
+    delta              Int
+    balanceAfter       Int
+    reason             String?
+    createdAt          DateTime        @default(now())
+
+    @@index([itemId, createdAt])
+    @@map("stock_ledger")
+}
+
+model AuditEvent {
+    id        Int      @id @default(autoincrement())
+    userId    Int
+    user      User     @relation(fields: [userId], references: [id])
+    action    String
+    entity    String
+    entityId  String
+    createdAt DateTime @default(now())
+
+    @@map("audit_events")
+}
