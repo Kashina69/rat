@@ -2,6 +2,7 @@ import { db } from "../../config/db.js";
 import { emitToRooms, getIo, roomsForSheds } from "../../config/socket.js";
 import { writeAudit } from "../../utils/audit.js";
 import { ApiError } from "../../utils/errors.js";
+import { lockItemForUpdate } from "../../utils/rowLocks.js";
 import type {
     AdjustStockInput,
     CreateItemInput,
@@ -211,12 +212,7 @@ export async function stockIn(
     userId: number,
 ) {
     const item = await db.$transaction(async (tx) => {
-        await tx.$queryRaw<Array<{ id: number }>>`
-            SELECT id FROM items WHERE id = ${itemId} FOR UPDATE
-        `;
-        const current = await tx.item.findUnique({
-            where: { id: itemId },
-        });
+        const current = await lockItemForUpdate(tx, itemId);
         if (!current) {
             throw new ApiError("ITEM_NOT_FOUND", "Item not found", 404);
         }
@@ -260,12 +256,7 @@ export async function adjustStock(
     userId: number,
 ) {
     const item = await db.$transaction(async (tx) => {
-        await tx.$queryRaw<Array<{ id: number }>>`
-            SELECT id FROM items WHERE id = ${itemId} FOR UPDATE
-        `;
-        const current = await tx.item.findUnique({
-            where: { id: itemId },
-        });
+        const current = await lockItemForUpdate(tx, itemId);
         if (!current) {
             throw new ApiError("ITEM_NOT_FOUND", "Item not found", 404);
         }

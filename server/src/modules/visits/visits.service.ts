@@ -3,6 +3,13 @@ import { emitToRooms, getIo, roomsForSheds } from "../../config/socket.js";
 import type { RequestUser } from "../../types/domain.js";
 import { writeAudit } from "../../utils/audit.js";
 import { ApiError } from "../../utils/errors.js";
+import {
+    lockItemForUpdate,
+    lockLineForUpdate,
+    lockLineStatusesForUpdate,
+    lockVisitForUpdate,
+    lockVisitLinesForUpdate,
+} from "../../utils/rowLocks.js";
 import { recalcVisitStatus } from "../../utils/visitStatus.js";
 import type { CreateVisitInput } from "../../validators/visit.schemas.js";
 import {
@@ -105,31 +112,26 @@ export async function listInside() {
 
 export async function cancelVisit(visitId: number, userId: number) {
     const visit = await db.$transaction(async (tx) => {
-        await tx.$queryRaw<Array<{ id: number }>>`
-            SELECT id FROM visits WHERE id = ${visitId} FOR UPDATE
-        `;
-        const current = await tx.visit.findUnique({
-            where: { id: visitId },
-            include: { requirementLines: true },
-        });
-        if (!current) {
+        const lockedVisit = await lockVisitForUpdate(tx, visitId);
+        if (!lockedVisit) {
             throw new ApiError("VISIT_NOT_FOUND", "Visit not found", 404);
         }
-        if (current.status === "CHECKED_OUT") {
+        if (lockedVisit.status === "CHECKED_OUT") {
             throw new ApiError(
                 "ALREADY_CHECKED_OUT",
                 "Visit already checked out",
                 409,
             );
         }
-        if (current.status === "CANCELLED") {
+        if (lockedVisit.status === "CANCELLED") {
             throw new ApiError(
                 "ALREADY_CANCELLED",
                 "Visit already cancelled",
                 409,
             );
         }
-        if (current.requirementLines.some((line) => line.status === "LOADED")) {
+        const lines = await lockVisitLinesForUpdate(tx, visitId);
+        if (lines.some((line) => line.status === "LOADED")) {
             throw new ApiError(
                 "HAS_LOADED_LINES",
                 "Cannot cancel: some lines already loaded",
@@ -169,31 +171,25 @@ export async function cancelVisit(visitId: number, userId: number) {
 
 export async function cancelLine(lineId: number, userId: number) {
     const line = await db.$transaction(async (tx) => {
-        const existing = await tx.requirementLine.findUnique({
+        const lineRef = await tx.requirementLine.findUnique({
             where: { id: lineId },
+            select: { visitId: true },
         });
-        if (!existing) {
+        if (!lineRef) {
             throw new ApiError("LINE_NOT_FOUND", "Line not found", 404);
         }
-        await tx.$queryRaw<Array<{ id: number }>>`
-            SELECT id FROM visits WHERE id = ${existing.visitId} FOR UPDATE
-        `;
-        const visit = await tx.visit.findUnique({
-            where: { id: existing.visitId },
-        });
+        const visit = await lockVisitForUpdate(tx, lineRef.visitId);
         if (!visit) {
             throw new ApiError("VISIT_NOT_FOUND", "Visit not found", 404);
         }
         if (visit.status === "CHECKED_OUT" || visit.status === "CANCELLED") {
             throw new ApiError("VISIT_CLOSED", "Visit is already closed", 409);
         }
-        await tx.$queryRaw<Array<{ id: number }>>`
-            SELECT id FROM requirement_lines WHERE id = ${lineId} FOR UPDATE
-        `;
-        const locked = await tx.requirementLine.findUnique({
-            where: { id: lineId },
-        });
-        if (!locked || locked.status !== "PENDING") {
+        const locked = await lockLineForUpdate(tx, lineId);
+        if (!locked) {
+            throw new ApiError("LINE_NOT_FOUND", "Line not found", 404);
+        }
+        if (locked.status !== "PENDING") {
             throw new ApiError(
                 "ALREADY_RESOLVED",
                 "Only pending lines can be cancelled",
@@ -204,13 +200,10 @@ export async function cancelLine(lineId: number, userId: number) {
             where: { id: lineId },
             data: { status: "CANCELLED" },
         });
-        const statuses = await tx.requirementLine.findMany({
-            where: { visitId: existing.visitId },
-            select: { status: true },
-        });
-        const next = recalcVisitStatus(statuses.map((row) => row.status));
+        const statuses = await lockLineStatusesForUpdate(tx, locked.visitId);
+        const next = recalcVisitStatus(statuses);
         await tx.visit.update({
-            where: { id: existing.visitId },
+            where: { id: locked.visitId },
             data: {
                 status: next,
                 cancelledAt: next === "CANCELLED" ? new Date() : null,
@@ -256,48 +249,18 @@ export async function confirmLine(
         );
     }
     const line = await db.$transaction(async (tx) => {
-        const existing = await tx.requirementLine.findUnique({
+        const lineRef = await tx.requirementLine.findUnique({
             where: { id: lineId },
+            select: { visitId: true },
         });
-        if (!existing) {
+        if (!lineRef) {
             throw new ApiError("LINE_NOT_FOUND", "Line not found", 404);
         }
-        if (
-            user.role === "SHED" &&
-            user.shedId !== null &&
-            existing.shedId !== user.shedId
-        ) {
-            throw new ApiError(
-                "CROSS_SHED",
-                "Cannot confirm lines of another shed",
-                403,
-            );
-        }
-        await tx.$queryRaw<Array<{ id: number }>>`
-            SELECT id FROM visits WHERE id = ${existing.visitId} FOR UPDATE
-        `;
-        const visit = await tx.visit.findUnique({
-            where: { id: existing.visitId },
-        });
+        const visit = await lockVisitForUpdate(tx, lineRef.visitId);
         if (!visit) {
             throw new ApiError("VISIT_NOT_FOUND", "Visit not found", 404);
         }
-        if (visit.status === "CHECKED_OUT") {
-            throw new ApiError(
-                "VISIT_CHECKED_OUT",
-                "Visit already checked out",
-                409,
-            );
-        }
-        if (visit.status === "CANCELLED") {
-            throw new ApiError("VISIT_CANCELLED", "Visit is cancelled", 409);
-        }
-        await tx.$queryRaw<Array<{ id: number }>>`
-            SELECT id FROM requirement_lines WHERE id = ${lineId} FOR UPDATE
-        `;
-        const locked = await tx.requirementLine.findUnique({
-            where: { id: lineId },
-        });
+        const locked = await lockLineForUpdate(tx, lineId);
         if (!locked) {
             throw new ApiError("LINE_NOT_FOUND", "Line not found", 404);
         }
@@ -311,6 +274,16 @@ export async function confirmLine(
                 "Cannot confirm lines of another shed",
                 403,
             );
+        }
+        if (visit.status === "CHECKED_OUT") {
+            throw new ApiError(
+                "VISIT_CHECKED_OUT",
+                "Visit already checked out",
+                409,
+            );
+        }
+        if (visit.status === "CANCELLED") {
+            throw new ApiError("VISIT_CANCELLED", "Visit is cancelled", 409);
         }
         if (locked.status !== "PENDING") {
             throw new ApiError(
@@ -326,12 +299,7 @@ export async function confirmLine(
                 400,
             );
         }
-        await tx.$queryRaw<Array<{ id: number }>>`
-            SELECT id FROM items WHERE id = ${locked.itemId} FOR UPDATE
-        `;
-        const item = await tx.item.findUnique({
-            where: { id: locked.itemId },
-        });
+        const item = await lockItemForUpdate(tx, locked.itemId);
         if (!item) {
             throw new ApiError("ITEM_NOT_FOUND", "Item not found", 404);
         }
@@ -363,20 +331,17 @@ export async function confirmLine(
             data: {
                 itemId: item.id,
                 requirementLineId: lineId,
-                visitId: existing.visitId,
+                visitId: locked.visitId,
                 actorUserId: user.id,
                 type: "OUT",
                 delta: -loadedQty,
                 balanceAfter,
             },
         });
-        const statuses = await tx.requirementLine.findMany({
-            where: { visitId: existing.visitId },
-            select: { status: true },
-        });
-        const next = recalcVisitStatus(statuses.map((row) => row.status));
+        const statuses = await lockLineStatusesForUpdate(tx, locked.visitId);
+        const next = recalcVisitStatus(statuses);
         await tx.visit.update({
-            where: { id: existing.visitId },
+            where: { id: locked.visitId },
             data: { status: next },
         });
         await writeAudit(tx, {
@@ -429,38 +394,29 @@ export async function confirmLine(
 
 export async function checkoutVisit(visitId: number, userId: number) {
     const visit = await db.$transaction(async (tx) => {
-        await tx.$queryRaw<Array<{ id: number }>>`
-            SELECT id FROM visits WHERE id = ${visitId} FOR UPDATE
-        `;
-        const current = await tx.visit.findUnique({
-            where: { id: visitId },
-            include: { requirementLines: true },
-        });
-        if (!current) {
+        const lockedVisit = await lockVisitForUpdate(tx, visitId);
+        if (!lockedVisit) {
             throw new ApiError("VISIT_NOT_FOUND", "Visit not found", 404);
         }
-        if (current.status === "CHECKED_OUT") {
+        if (lockedVisit.status === "CHECKED_OUT") {
             throw new ApiError(
                 "ALREADY_CHECKED_OUT",
                 "Visit already checked out",
                 409,
             );
         }
-        if (current.status === "CANCELLED") {
+        if (lockedVisit.status === "CANCELLED") {
             throw new ApiError("VISIT_CANCELLED", "Visit is cancelled", 409);
         }
-        if (
-            current.requirementLines.some((line) => line.status === "PENDING")
-        ) {
+        const lines = await lockVisitLinesForUpdate(tx, visitId);
+        if (lines.some((line) => line.status === "PENDING")) {
             throw new ApiError(
                 "NOT_READY",
                 "All lines must be loaded before checkout",
                 409,
             );
         }
-        if (
-            !current.requirementLines.some((line) => line.status === "LOADED")
-        ) {
+        if (!lines.some((line) => line.status === "LOADED")) {
             throw new ApiError(
                 "NOTHING_LOADED",
                 "No loaded lines to checkout",
