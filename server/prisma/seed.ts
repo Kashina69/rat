@@ -5,6 +5,25 @@ const prisma = new PrismaClient();
 
 const SHOULD_RESET = process.argv.includes("--reset");
 const IS_PROD = process.env.NODE_ENV === "production";
+const ALLOW_DESTRUCTIVE_SEED = process.env.ALLOW_DESTRUCTIVE_SEED === "1";
+
+type SeedItem = {
+    name: string;
+    category: string;
+    unit: string;
+    shedId: number;
+    currentStock: number;
+    reorderLevel: number;
+};
+
+function assertResetAllowed() {
+    if (!SHOULD_RESET || !IS_PROD || ALLOW_DESTRUCTIVE_SEED) {
+        return;
+    }
+    throw new Error(
+        "Refusing to run --reset with NODE_ENV=production. Set ALLOW_DESTRUCTIVE_SEED=1 to override.",
+    );
+}
 
 function seedPassword(key: string, fallback: string): Promise<string> {
     const value = process.env[key];
@@ -30,10 +49,25 @@ async function reset() {
     ]);
 }
 
+function createItemWithOpeningStock(item: SeedItem, actorUserId: number) {
+    return prisma.$transaction(async (tx) => {
+        const created = await tx.item.create({ data: item });
+        await tx.stockLedger.create({
+            data: {
+                itemId: created.id,
+                actorUserId,
+                type: "OPENING",
+                delta: item.currentStock,
+                balanceAfter: item.currentStock,
+                reason: "Opening stock",
+            },
+        });
+        return created;
+    });
+}
+
 async function main() {
-    if (SHOULD_RESET) {
-        await reset();
-    }
+    assertResetAllowed();
 
     const adminHash = await seedPassword(
         "SEED_ADMIN_PASSWORD",
@@ -52,6 +86,10 @@ async function main() {
         "ShedB@123-dev-only",
     );
 
+    if (SHOULD_RESET) {
+        await reset();
+    }
+
     const shedA = await prisma.shed.upsert({
         where: { code: "SHED-A" },
         update: {},
@@ -63,7 +101,7 @@ async function main() {
         create: { name: "Shed B", code: "SHED-B" },
     });
 
-    const items = [
+    const items: SeedItem[] = [
         {
             name: "Item A1",
             category: "Ammo",
@@ -148,7 +186,12 @@ async function main() {
 
     const admin = await prisma.user.upsert({
         where: { username: "admin" },
-        update: {},
+        update: {
+            name: "Admin",
+            passwordHash: adminHash,
+            role: "ADMIN",
+            shedId: null,
+        },
         create: {
             name: "Admin",
             username: "admin",
@@ -164,22 +207,17 @@ async function main() {
         if (existing) {
             continue;
         }
-        const created = await prisma.item.create({ data: item });
-        await prisma.stockLedger.create({
-            data: {
-                itemId: created.id,
-                actorUserId: admin.id,
-                type: "OPENING",
-                delta: item.currentStock,
-                balanceAfter: item.currentStock,
-                reason: "Opening stock",
-            },
-        });
+        await createItemWithOpeningStock(item, admin.id);
     }
 
     await prisma.user.upsert({
         where: { username: "gate" },
-        update: {},
+        update: {
+            name: "Gate Clerk",
+            passwordHash: gateHash,
+            role: "GATE",
+            shedId: null,
+        },
         create: {
             name: "Gate Clerk",
             username: "gate",
@@ -189,7 +227,12 @@ async function main() {
     });
     await prisma.user.upsert({
         where: { username: "sheda" },
-        update: {},
+        update: {
+            name: "Shed A Keeper",
+            passwordHash: shedAHash,
+            role: "SHED",
+            shedId: shedA.id,
+        },
         create: {
             name: "Shed A Keeper",
             username: "sheda",
@@ -200,7 +243,12 @@ async function main() {
     });
     await prisma.user.upsert({
         where: { username: "shedb" },
-        update: {},
+        update: {
+            name: "Shed B Keeper",
+            passwordHash: shedBHash,
+            role: "SHED",
+            shedId: shedB.id,
+        },
         create: {
             name: "Shed B Keeper",
             username: "shedb",
