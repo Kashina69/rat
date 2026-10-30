@@ -1,23 +1,207 @@
 @import "tailwindcss";
 
+@theme inline {
+    --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-subtle: var(--subtle);
+    --color-subtle-strong: var(--subtle-strong);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-ring: var(--ring);
+
+    --color-primary: var(--primary);
+    --color-primary-hover: var(--primary-hover);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+
+    --color-success: var(--success);
+    --color-success-surface: var(--success-surface);
+    --color-success-border: var(--success-border);
+    --color-warning: var(--warning);
+    --color-warning-surface: var(--warning-surface);
+    --color-warning-border: var(--warning-border);
+    --color-danger: var(--danger);
+    --color-danger-hover: var(--danger-hover);
+    --color-danger-surface: var(--danger-surface);
+    --color-danger-border: var(--danger-border);
+    --color-destructive: var(--danger);
+    --color-destructive-foreground: #ffffff;
+
+    --color-brand-50: var(--brand-50);
+    --color-brand-100: var(--brand-100);
+    --color-brand-200: var(--brand-200);
+    --color-brand-300: var(--brand-300);
+    --color-brand-400: var(--brand-400);
+    --color-brand-500: var(--brand-500);
+    --color-brand-600: var(--brand-600);
+    --color-brand-700: var(--brand-700);
+    --color-brand-800: var(--brand-800);
+    --color-brand-900: var(--brand-900);
+    --color-brand-950: var(--brand-950);
+
+    /* Legacy token aliases: screens not yet migrated still compile on the light theme. */
+    --color-surface: var(--background);
+    --color-surface-raised: var(--card);
+    --color-surface-overlay: var(--subtle-strong);
+    --color-line: var(--border);
+    --color-line-strong: var(--border-strong);
+    --color-ink: var(--foreground);
+    --color-muted: var(--muted-foreground);
+    --color-accent: var(--primary);
+    --color-accent-hover: var(--primary-hover);
+    --color-accent-ink: var(--primary-foreground);
+
+    --radius-control: 10px;
+    --radius-card: 14px;
+    --radius-dialog: 18px;
+}
+
 @theme {
-    --color-surface: #020617;
-    --color-surface-raised: #0f172a;
-    --color-surface-overlay: #1e293b;
-    --color-line: #1e293b;
-    --color-line-strong: #334155;
-    --color-ink: #f1f5f9;
-    --color-muted: #94a3b8;
-    --color-accent: #f59e0b;
-    --color-accent-hover: #fbbf24;
-    --color-accent-ink: #020617;
+    --shadow-sm: 0 1px 2px rgba(11, 18, 16, 0.05);
+    --shadow-md: 0 10px 30px rgba(11, 18, 16, 0.1);
 }
 
+/* Fallbacks: layout.tsx injects the generated brand scale on <html>. */
 :root {
-    color-scheme: dark;
+    color-scheme: light;
+
+    --brand-50: #eef5ef;
+    --brand-100: #dceade;
+    --brand-200: #bad6be;
+    --brand-300: #8bb994;
+    --brand-400: #5a9d6a;
+    --brand-500: #388c50;
+    --brand-600: #157f3d;
+    --brand-700: #106a32;
+    --brand-800: #0b5627;
+    --brand-900: #06401b;
+    --brand-950: #032a10;
+
+    --background: #ffffff;
+    --foreground: #0b1210;
+    --card: #ffffff;
+    --card-foreground: #0b1210;
+    --subtle: #f6faf7;
+    --subtle-strong: #eef5f0;
+    --muted-foreground: #5c6b63;
+    --border: #e2e9e4;
+    --border-strong: #cbd6cf;
+
+    --primary: var(--brand-600);
+    --primary-hover: var(--brand-700);
+    --primary-foreground: #ffffff;
+    --secondary: var(--brand-50);
+    --secondary-foreground: var(--brand-800);
+    --ring: var(--brand-500);
+
+    --success: var(--brand-600);
+    --success-surface: var(--brand-50);
+    --success-border: var(--brand-200);
+    --warning: #b45309;
+    --warning-surface: #fffbeb;
+    --warning-border: #fde68a;
+    --danger: #b91c1c;
+    --danger-hover: #991b1b;
+    --danger-surface: #fef2f2;
+    --danger-border: #fecaca;
+
+    --radius: 14px;
 }
 
-body {
-    background-color: var(--color-surface);
-    color: var(--color-ink);
+@layer base {
+    *,
+    ::before,
+    ::after {
+        border-color: var(--border);
+    }
+
+    html {
+        -webkit-text-size-adjust: 100%;
+        -webkit-tap-highlight-color: transparent;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+
+    body {
+        background-color: var(--background);
+        color: var(--foreground);
+        font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+        text-rendering: optimizeLegibility;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+    }
+
+    ::selection {
+        background-color: var(--brand-200);
+        color: var(--brand-950);
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+    }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: var(--border-strong);
+        background-clip: content-box;
+        border: 3px solid transparent;
+        border-radius: 999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--brand-300);
+    }
+}
+
+[data-sonner-toaster] {
+    font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-sonner-toast] [data-icon] {
+    color: var(--brand-700);
+}
+
+[data-sonner-toast][data-type="error"] [data-icon] {
+    color: var(--danger);
+}
+
+[data-sonner-toast][data-type="warning"] [data-icon] {
+    color: var(--warning);
+}
+
+[data-sonner-toast][data-type="info"] [data-icon] {
+    color: var(--brand-600);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat utility transitions */
+        animation: none !important;
+        /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat utility transitions */
+        transition: none !important;
+    }
 }

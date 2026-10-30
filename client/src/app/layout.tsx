@@ -1,22 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Manrope } from "next/font/google";
 import { AppShell } from "@/components/layout/AppShell";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 import { ToastHost } from "@/components/ui/sonner";
-import { theme } from "@/lib/theme";
+import { brandCssVars, brandScale } from "@/lib/theme";
 import { AuthProvider } from "@/providers/auth-provider";
 import { QueryProvider } from "@/providers/query-provider";
 import { SocketProvider } from "@/providers/socket-provider";
 import "./globals.css";
 
-const geistSans = Geist({
-    variable: "--font-geist-sans",
+const manrope = Manrope({
+    variable: "--font-manrope",
     subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-    variable: "--font-geist-mono",
-    subsets: ["latin"],
+    display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -29,7 +25,7 @@ export const metadata: Metadata = {
     applicationName: "DMS Depot",
     appleWebApp: {
         capable: true,
-        statusBarStyle: "black-translucent",
+        statusBarStyle: "default",
         title: "DMS Depot",
     },
     icons: {
@@ -52,16 +48,18 @@ export const viewport: Viewport = {
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
-    themeColor: theme.background,
+    colorScheme: "light",
+    themeColor: brandScale[700],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
     return (
         <html
             lang="en"
-            className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+            className={`${manrope.variable} h-full antialiased`}
+            style={brandCssVars}
         >
-            <body className="min-h-full flex flex-col bg-surface">
+            <body className="flex min-h-full flex-col bg-background text-foreground">
                 <QueryProvider>
                     <AuthProvider>
                         <SocketProvider>
