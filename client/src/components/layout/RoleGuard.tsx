@@ -18,7 +18,7 @@ export function RoleGuard({
     allow: Role[];
     children: ReactNode;
 }) {
-    const { user, isAuthenticated } = useAuth();
+    const { user, isAuthenticated, initializing } = useAuth();
     const router = useRouter();
     const blockedHome =
         user && !allow.includes(user.role) ? roleHome(user.role) : null;
@@ -26,6 +26,7 @@ export function RoleGuard({
     const lastRedirect = useRef<string | null>(null);
 
     useEffect(() => {
+        if (initializing) return;
         if (!redirectTo) {
             lastRedirect.current = null;
             return;
@@ -33,8 +34,9 @@ export function RoleGuard({
         if (lastRedirect.current === redirectTo) return;
         lastRedirect.current = redirectTo;
         router.replace(redirectTo);
-    }, [redirectTo, router]);
+    }, [initializing, redirectTo, router]);
 
+    if (initializing) return null;
     if (!isAuthenticated || !user) return null;
     if (!allow.includes(user.role)) {
         return (

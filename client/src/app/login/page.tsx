@@ -18,7 +18,7 @@ import { roleHome } from "@/types/api";
 import { type LoginFormInput, loginSchema } from "@/validations/auth";
 
 export default function LoginPage() {
-    const { user, isAuthenticated, login } = useAuth();
+    const { user, isAuthenticated, initializing, login } = useAuth();
     const { state } = useNetworkStatus();
     const router = useRouter();
     const {
@@ -28,10 +28,14 @@ export default function LoginPage() {
     } = useForm<LoginFormInput>({ resolver: zodResolver(loginSchema) });
 
     useEffect(() => {
-        if (isAuthenticated && user) {
+        if (!initializing && isAuthenticated && user) {
             router.replace(roleHome(user.role));
         }
-    }, [isAuthenticated, user, router]);
+    }, [initializing, isAuthenticated, user, router]);
+
+    if (initializing || (isAuthenticated && user)) {
+        return null;
+    }
 
     const offline = state === "offline";
 
