@@ -1,10 +1,21 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Plus, Trash2 } from "lucide-react";
 import { type Resolver, useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { useItems } from "@/hooks/useItems";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useCreateVisit } from "@/hooks/useVisits";
@@ -51,200 +62,297 @@ export function VehicleForm() {
         items.find((item) => item.id === itemId)?.name ?? `item ${itemId}`;
 
     return (
-        <form
-            className="flex flex-col gap-4 rounded-xl border border-line bg-surface-raised p-4"
-            onSubmit={handleSubmit(async (values) => {
-                const lines = values.lines.map((l) => ({
-                    itemId: Number(l.itemId),
-                    qty: Number(l.qty),
-                }));
-                if (lines.some((l) => !l.itemId)) {
-                    toast.error("Pick an item for every line.");
-                    return;
-                }
-                try {
-                    const result = await createVisit.mutateAsync({
-                        vehicleNumber: values.vehicleNumber.trim(),
-                        driverName: values.driverName.trim(),
-                        party: values.party.trim(),
-                        lines,
-                    });
-                    if (result.warnings.length > 0) {
-                        toast.warning(
-                            `Saved with low stock: ${result.warnings.map((w) => `${itemName(w.itemId)} needs ${w.requested}, has ${w.available}`).join("; ")}`,
-                        );
-                    } else {
-                        toast.success(
-                            `Vehicle ${result.visit.vehicleNumber} registered`,
-                        );
-                    }
-                    reset({
-                        vehicleNumber: "",
-                        driverName: "",
-                        party: "",
-                        lines: [{ itemId: 0, qty: 1 }],
-                    });
-                } catch (error) {
-                    toast.error(friendlyMessage(error));
-                }
-            })}
-        >
-            <h2 className="text-xl font-bold">Register vehicle</h2>
-            <label htmlFor="vehicle-number" className="flex flex-col gap-1.5">
-                <span className="text-base font-semibold">Vehicle number</span>
-                <Input
-                    {...register("vehicleNumber")}
-                    id="vehicle-number"
-                    placeholder="MH12AB1234"
-                    autoCapitalize="characters"
-                    aria-invalid={Boolean(errors.vehicleNumber)}
-                />
-                {errors.vehicleNumber && (
-                    <span role="alert" className="text-base text-red-400">
-                        {errors.vehicleNumber.message}
-                    </span>
-                )}
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-                <label htmlFor="driver-name" className="flex flex-col gap-1.5">
-                    <span className="text-base font-semibold">Driver</span>
-                    <Input
-                        {...register("driverName")}
-                        id="driver-name"
-                        placeholder="Driver name"
-                        aria-invalid={Boolean(errors.driverName)}
-                    />
-                    {errors.driverName && (
-                        <span role="alert" className="text-base text-red-400">
-                            {errors.driverName.message}
-                        </span>
-                    )}
-                </label>
-                <label htmlFor="party-name" className="flex flex-col gap-1.5">
-                    <span className="text-base font-semibold">Party</span>
-                    <Input
-                        {...register("party")}
-                        id="party-name"
-                        placeholder="Party name"
-                        aria-invalid={Boolean(errors.party)}
-                    />
-                    {errors.party && (
-                        <span role="alert" className="text-base text-red-400">
-                            {errors.party.message}
-                        </span>
-                    )}
-                </label>
-            </div>
+        <Card className="shadow-none">
+            <CardHeader>
+                <CardTitle>Register vehicle</CardTitle>
+                <CardDescription>
+                    Record vehicle arrival and assign consignment items.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+                <form
+                    className="flex flex-col gap-4"
+                    onSubmit={handleSubmit(async (values) => {
+                        const lines = values.lines.map((l) => ({
+                            itemId: Number(l.itemId),
+                            qty: Number(l.qty),
+                        }));
+                        if (lines.some((l) => !l.itemId)) {
+                            toast.error("Pick an item for every line.");
+                            return;
+                        }
+                        try {
+                            const result = await createVisit.mutateAsync({
+                                vehicleNumber: values.vehicleNumber.trim(),
+                                driverName: values.driverName.trim(),
+                                party: values.party.trim(),
+                                lines,
+                            });
+                            if (result.warnings.length > 0) {
+                                toast.warning(
+                                    `Saved with low stock: ${result.warnings
+                                        .map(
+                                            (w) =>
+                                                `${itemName(w.itemId)} needs ${w.requested}, has ${w.available}`,
+                                        )
+                                        .join("; ")}`,
+                                );
+                            } else {
+                                toast.success(
+                                    `Vehicle ${result.visit.vehicleNumber} registered`,
+                                );
+                            }
+                            reset({
+                                vehicleNumber: "",
+                                driverName: "",
+                                party: "",
+                                lines: [{ itemId: 0, qty: 1 }],
+                            });
+                        } catch (error) {
+                            toast.error(friendlyMessage(error));
+                        }
+                    })}
+                >
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="vehicle-number">Vehicle number</Label>
+                        <Input
+                            {...register("vehicleNumber")}
+                            id="vehicle-number"
+                            placeholder="e.g. MH12AB1234"
+                            autoCapitalize="characters"
+                            aria-invalid={Boolean(errors.vehicleNumber)}
+                            aria-describedby={
+                                errors.vehicleNumber
+                                    ? "vehicle-number-error"
+                                    : undefined
+                            }
+                            className="font-medium uppercase placeholder:normal-case placeholder:font-normal"
+                        />
+                        {errors.vehicleNumber && (
+                            <span
+                                id="vehicle-number-error"
+                                role="alert"
+                                className="text-[13px] text-danger"
+                            >
+                                {errors.vehicleNumber.message}
+                            </span>
+                        )}
+                    </div>
 
-            <div className="flex flex-col gap-3">
-                <span className="text-base font-semibold">Items</span>
-                {itemsFailed && (
-                    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-700 bg-amber-950 p-3 text-base text-amber-100">
-                        <span className="flex-1">
-                            Item list failed to load — retry, or pick an item
-                            after reconnect.
-                        </span>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="driver-name">Driver</Label>
+                            <Input
+                                {...register("driverName")}
+                                id="driver-name"
+                                placeholder="Driver name"
+                                aria-invalid={Boolean(errors.driverName)}
+                                aria-describedby={
+                                    errors.driverName
+                                        ? "driver-name-error"
+                                        : undefined
+                                }
+                            />
+                            {errors.driverName && (
+                                <span
+                                    id="driver-name-error"
+                                    role="alert"
+                                    className="text-[13px] text-danger"
+                                >
+                                    {errors.driverName.message}
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="party-name">Party</Label>
+                            <Input
+                                {...register("party")}
+                                id="party-name"
+                                placeholder="Party or company"
+                                aria-invalid={Boolean(errors.party)}
+                                aria-describedby={
+                                    errors.party ? "party-error" : undefined
+                                }
+                            />
+                            {errors.party && (
+                                <span
+                                    id="party-error"
+                                    role="alert"
+                                    className="text-[13px] text-danger"
+                                >
+                                    {errors.party.message}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 pt-1">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-foreground">
+                                Items
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                                {fields.length}{" "}
+                                {fields.length === 1 ? "line" : "lines"}
+                            </span>
+                        </div>
+
+                        {itemsFailed && (
+                            <Alert
+                                variant="warning"
+                                className="flex flex-wrap items-center justify-between gap-2"
+                            >
+                                <span className="flex-1">
+                                    Item list failed to load — retry or pick
+                                    after reconnect.
+                                </span>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={itemsQuery.isFetching}
+                                    onClick={() => void itemsQuery.refetch()}
+                                    className="border-warning/30 bg-card text-warning hover:bg-warning-surface"
+                                >
+                                    {itemsQuery.isFetching
+                                        ? "Retrying…"
+                                        : "Retry"}
+                                </Button>
+                            </Alert>
+                        )}
+
+                        <div className="flex flex-col gap-2.5">
+                            {fields.map((field, index) => (
+                                <div
+                                    key={field.id}
+                                    className="flex flex-col gap-3 rounded-[10px] border border-border bg-subtle/40 p-3 sm:flex-row sm:items-end"
+                                >
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                        <Label
+                                            htmlFor={`line-item-${index}`}
+                                            className="text-xs font-medium text-muted-foreground"
+                                        >
+                                            Item
+                                        </Label>
+                                        <Select
+                                            {...register(
+                                                `lines.${index}.itemId`,
+                                            )}
+                                            id={`line-item-${index}`}
+                                            disabled={itemsLoading}
+                                        >
+                                            <option value={0} disabled>
+                                                {itemsLoading
+                                                    ? "Loading items…"
+                                                    : itemsFailed
+                                                      ? "Item list failed — retry after reconnect"
+                                                      : items.length === 0
+                                                        ? "No items available"
+                                                        : "Select item"}
+                                            </option>
+                                            {items.map((item) => (
+                                                <option
+                                                    key={item.id}
+                                                    value={item.id}
+                                                >
+                                                    {item.name} · Shed{" "}
+                                                    {item.shed.code} (stock:{" "}
+                                                    {item.currentStock}{" "}
+                                                    {item.unit})
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </div>
+
+                                    <div className="flex w-full flex-col gap-1.5 sm:w-28">
+                                        <Label
+                                            htmlFor={`line-qty-${index}`}
+                                            className="text-xs font-medium text-muted-foreground"
+                                        >
+                                            Qty
+                                        </Label>
+                                        <Input
+                                            {...register(`lines.${index}.qty`)}
+                                            id={`line-qty-${index}`}
+                                            type="number"
+                                            min={1}
+                                            step={1}
+                                            inputMode="numeric"
+                                            className="tabular-nums"
+                                        />
+                                    </div>
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        aria-label={`Remove line ${index + 1}`}
+                                        onClick={() => remove(index)}
+                                        disabled={fields.length <= 1}
+                                        className="self-end shrink-0 text-muted-foreground hover:border-danger/30 hover:bg-danger-surface hover:text-danger disabled:opacity-40 sm:self-auto"
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {errors.lines && (
+                            <span
+                                role="alert"
+                                className="text-[13px] text-danger"
+                            >
+                                {errors.lines.message ??
+                                    "Add at least one valid item with qty ≥ 1."}
+                            </span>
+                        )}
+
                         <Button
                             type="button"
-                            size="sm"
                             variant="outline"
-                            disabled={itemsQuery.isFetching}
-                            onClick={() => void itemsQuery.refetch()}
+                            onClick={() => append({ itemId: 0, qty: 1 })}
+                            className="w-full border-dashed border-border-strong text-foreground hover:border-brand-500 hover:bg-brand-50 hover:text-brand-800"
                         >
-                            {itemsQuery.isFetching ? "Retrying…" : "Retry"}
+                            <Plus className="size-4" />
+                            Add item
                         </Button>
                     </div>
-                )}
-                {fields.map((field, index) => (
-                    <div
-                        key={field.id}
-                        className="flex gap-2 rounded-lg border border-line p-2"
-                    >
-                        <label
-                            htmlFor={`line-item-${index}`}
-                            className="flex flex-1 flex-col gap-1"
-                        >
-                            <span className="text-sm text-muted">Item</span>
-                            <select
-                                {...register(`lines.${index}.itemId`)}
-                                id={`line-item-${index}`}
-                                disabled={itemsLoading}
-                                className="min-h-[48px] w-full rounded-lg border border-line-strong bg-surface px-3 text-base text-ink"
-                            >
-                                <option value={0} disabled>
-                                    {itemsLoading
-                                        ? "Loading items…"
-                                        : itemsFailed
-                                          ? "Item list failed — retry after reconnect"
-                                          : items.length === 0
-                                            ? "No items available"
-                                            : "Select item"}
-                                </option>
-                                {items.map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                        {item.name} · {item.shed.code} · stock{" "}
-                                        {item.currentStock} {item.unit}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <label
-                            htmlFor={`line-qty-${index}`}
-                            className="flex w-28 flex-col gap-1"
-                        >
-                            <span className="text-sm text-muted">Qty</span>
-                            <Input
-                                {...register(`lines.${index}.qty`)}
-                                id={`line-qty-${index}`}
-                                type="number"
-                                min={1}
-                                step={1}
-                                inputMode="numeric"
-                            />
-                        </label>
-                        <button
-                            type="button"
-                            aria-label={`Remove line ${index + 1}`}
-                            onClick={() => remove(index)}
-                            disabled={fields.length <= 1}
-                            className="mt-6 flex min-h-[48px] min-w-[48px] items-center justify-center rounded-lg border border-line-strong text-xl text-muted disabled:opacity-40"
-                        >
-                            ×
-                        </button>
-                    </div>
-                ))}
-                {errors.lines && (
-                    <span role="alert" className="text-base text-red-400">
-                        Add at least one valid item with qty ≥ 1.
-                    </span>
-                )}
-                <button
-                    type="button"
-                    onClick={() => append({ itemId: 0, qty: 1 })}
-                    className="flex min-h-[44px] items-center justify-center rounded-lg border border-dashed border-line-strong text-base font-semibold text-ink"
-                >
-                    + Add item
-                </button>
-            </div>
 
-            <Button
-                type="submit"
-                size="lg"
-                disabled={createVisit.isPending || offline || itemsUnavailable}
-            >
-                {createVisit.isPending ? "Saving…" : "Register"}
-            </Button>
-            {offline && (
-                <output className="text-base text-red-300">
-                    You are offline. Registration needs a connection.
-                </output>
-            )}
-            {!itemsLoading && !itemsFailed && items.length === 0 && (
-                <output className="text-base text-amber-300">
-                    No items are available — ask an admin to create one before
-                    registering.
-                </output>
-            )}
-        </form>
+                    <div className="flex flex-col gap-2 pt-2">
+                        <Button
+                            type="submit"
+                            size="lg"
+                            disabled={
+                                createVisit.isPending ||
+                                offline ||
+                                itemsUnavailable
+                            }
+                            className="w-full"
+                        >
+                            {createVisit.isPending
+                                ? "Registering…"
+                                : "Register vehicle"}
+                        </Button>
+
+                        {offline && (
+                            <Alert variant="danger">
+                                You are offline. Registration needs a
+                                connection.
+                            </Alert>
+                        )}
+
+                        {!itemsLoading &&
+                            !itemsFailed &&
+                            items.length === 0 && (
+                                <Alert variant="warning">
+                                    No items are available — ask an admin to
+                                    create one before registering.
+                                </Alert>
+                            )}
+                    </div>
+                </form>
+            </CardContent>
+        </Card>
     );
 }
