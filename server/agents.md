@@ -27,10 +27,10 @@ npm run typecheck    # tsc --noEmit — covers src, tests, prisma/seed.ts
 npm run lint         # biome check (npm run format to write)
 npm run build        # tsc -p tsconfig.build.json → dist/index.js
 npm run db:migrate   # prisma migrate dev     |  db:seed: tsx prisma/seed.ts (-- --reset)
-TEST_DATABASE_URL="mysql://dms:dms@127.0.0.1:3306/dms_test" npm test
+TEST_DATABASE_URL="mysql://rat:rat@127.0.0.1:3306/rat_test" npm test
 ```
 
-Integration-only tests against a real MySQL `dms_test`, inside the `tsconfig` include so `typecheck` covers
+Integration-only tests against a real MySQL `rat_test`, inside the `tsconfig` include so `typecheck` covers
 them. `tests/setup-env.ts` maps `TEST_DATABASE_URL` → `DATABASE_URL` and defaults `JWT_SECRET`;
 `truncateAll` refuses any database not ending in `_test`. Green run: **12 files / 40 tests**. One squashed
 `init` migration — add a new one for schema changes.

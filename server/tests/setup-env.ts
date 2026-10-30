@@ -4,7 +4,7 @@ const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim();
 
 if (!testDatabaseUrl) {
     throw new Error(
-        "TEST_DATABASE_URL is required. Point it at a throwaway MySQL database whose name ends with _test, e.g. mysql://dms:dms@localhost:3306/dms_test",
+        "TEST_DATABASE_URL is required. Point it at a throwaway MySQL database whose name ends with _test, e.g. mysql://rat:rat@localhost:3306/rat_test",
     );
 }
 

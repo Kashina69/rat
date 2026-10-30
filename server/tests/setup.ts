@@ -31,12 +31,12 @@ function assertTestDatabase(): string {
         `REFUSING TO TRUNCATE: database "${label}" does not end with "${TEST_DATABASE_SUFFIX}". Tests only wipe throwaway *_test databases.`,
     );
     throw new Error(
-        `Refusing to truncate database "${label}": its name must end with "${TEST_DATABASE_SUFFIX}". Set TEST_DATABASE_URL to a throwaway MySQL database such as mysql://dms:dms@localhost:3306/dms_test`,
+        `Refusing to truncate database "${label}": its name must end with "${TEST_DATABASE_SUFFIX}". Set TEST_DATABASE_URL to a throwaway MySQL database such as mysql://rat:rat@localhost:3306/rat_test`,
     );
 }
 
 const globalForMigrations = globalThis as unknown as {
-    dmsTestMigrations?: { url: string; run: Promise<void> };
+    ratTestMigrations?: { url: string; run: Promise<void> };
 };
 
 async function deployMigrations(): Promise<void> {
@@ -50,15 +50,15 @@ async function deployMigrations(): Promise<void> {
 // workers skip the second `prisma migrate deploy`. `vitest run` never changes
 // migrations mid-run, so a stale cache is not a concern.
 export function migrateTestDb(): Promise<void> {
-    const existing = globalForMigrations.dmsTestMigrations;
+    const existing = globalForMigrations.ratTestMigrations;
     if (existing?.url === databaseUrl) {
         return existing.run;
     }
     const run = deployMigrations().catch((error: unknown) => {
-        globalForMigrations.dmsTestMigrations = undefined;
+        globalForMigrations.ratTestMigrations = undefined;
         throw error;
     });
-    globalForMigrations.dmsTestMigrations = { url: databaseUrl, run };
+    globalForMigrations.ratTestMigrations = { url: databaseUrl, run };
     return run;
 }
 
