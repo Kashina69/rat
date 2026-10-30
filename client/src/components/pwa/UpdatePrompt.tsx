@@ -9,22 +9,37 @@ export function UpdatePrompt() {
     useEffect(() => {
         if (!("serviceWorker" in navigator)) return;
         let timer: number | undefined;
+        let cancelled = false;
+
+        const armWaiting = (reg: ServiceWorkerRegistration | undefined) => {
+            if (!cancelled && reg?.waiting) setUpdateReady(true);
+        };
+
         const check = async () => {
             try {
                 const reg = await navigator.serviceWorker.getRegistration("/");
-                if (reg?.waiting) setUpdateReady(true);
+                await reg?.update().catch(() => undefined);
+                armWaiting(reg);
+                reg?.addEventListener("updatefound", () => {
+                    const worker = reg.installing;
+                    if (!worker) return;
+                    worker.addEventListener("statechange", () => {
+                        if (worker.state === "installed") armWaiting(reg);
+                    });
+                });
             } catch {
                 // Update check is best-effort; SW still serves the shell.
             }
         };
         void check();
         timer = window.setInterval(check, 60_000);
-        const onControllerChange = () => setUpdateReady(false);
+        const onControllerChange = () => window.location.reload();
         navigator.serviceWorker.addEventListener(
             "controllerchange",
             onControllerChange,
         );
         return () => {
+            cancelled = true;
             window.clearInterval(timer);
             navigator.serviceWorker.removeEventListener(
                 "controllerchange",
@@ -34,6 +49,15 @@ export function UpdatePrompt() {
     }, []);
 
     if (!updateReady) return null;
+
+    const applyUpdate = async () => {
+        try {
+            const reg = await navigator.serviceWorker.getRegistration("/");
+            reg?.waiting?.postMessage({ type: "SKIP_WAITING" });
+        } catch {
+            window.location.reload();
+        }
+    };
 
     return (
         <output
@@ -46,7 +70,7 @@ export function UpdatePrompt() {
             </p>
             <Button
                 type="button"
-                onClick={() => window.location.reload()}
+                onClick={() => void applyUpdate()}
                 className="min-h-[48px]"
             >
                 Reload now

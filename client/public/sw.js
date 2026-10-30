@@ -1,5 +1,5 @@
-const SHELL_CACHE = "dms-shell-v1";
-const STATIC_CACHE = "dms-static-v1";
+const SHELL_CACHE = "dms-shell-v2";
+const STATIC_CACHE = "dms-static-v2";
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {
@@ -34,7 +34,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("message", (event) => {
-    if (event.data === "SKIP_WAITING") {
+    if (event.data === "SKIP_WAITING" || event.data?.type === "SKIP_WAITING") {
         self.skipWaiting();
     }
 });
@@ -98,14 +98,25 @@ self.addEventListener("fetch", (event) => {
             caches.match(request).then(
                 (cached) =>
                     cached ??
-                    fetch(request).then((response) => {
-                        const copy = response.clone();
-                        caches
-                            .open(STATIC_CACHE)
-                            .then((cache) => cache.put(request, copy))
-                            .catch(() => undefined);
-                        return response;
-                    }),
+                    fetch(request)
+                        .then((response) => {
+                            const copy = response.clone();
+                            caches
+                                .open(STATIC_CACHE)
+                                .then((cache) => cache.put(request, copy))
+                                .catch(() => undefined);
+                            return response;
+                        })
+                        .catch(() =>
+                            request.mode === "navigate"
+                                ? caches
+                                      .match(OFFLINE_URL)
+                                      .then(
+                                          (offline) =>
+                                              offline ?? Response.error(),
+                                      )
+                                : Response.error(),
+                        ),
             ),
         );
     }
