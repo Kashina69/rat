@@ -53,6 +53,7 @@ model User {
     role              Role
     shedId            Int?
     shed              Shed?        @relation(fields: [shedId], references: [id])
+    isActive          Boolean      @default(true)
     gateVisits        Visit[]      @relation("GateUser")
     checkoutVisits    Visit[]      @relation("CheckoutUser")
     confirmedLines    RequirementLine[]
@@ -133,7 +134,7 @@ model StockLedger {
     type               LedgerType
     delta              Int
     balanceAfter       Int
-    reason             String?
+    reason             String?         @db.VarChar(255)
     createdAt          DateTime        @default(now())
 
     @@index([itemId, createdAt])

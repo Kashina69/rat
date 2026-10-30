@@ -16,6 +16,7 @@ CREATE TABLE `users` (
     `passwordHash` VARCHAR(191) NOT NULL,
     `role` ENUM('ADMIN', 'GATE', 'SHED') NOT NULL,
     `shedId` INTEGER NULL,
+    `isActive` BOOLEAN NOT NULL DEFAULT true,
 
     UNIQUE INDEX `users_username_key`(`username`),
     PRIMARY KEY (`id`)
@@ -80,7 +81,7 @@ CREATE TABLE `stock_ledger` (
     `type` ENUM('OPENING', 'IN', 'OUT', 'ADJUST') NOT NULL,
     `delta` INTEGER NOT NULL,
     `balanceAfter` INTEGER NOT NULL,
-    `reason` VARCHAR(191) NULL,
+    `reason` VARCHAR(255) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     UNIQUE INDEX `stock_ledger_requirementLineId_key`(`requirementLineId`),
