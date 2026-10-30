@@ -7,6 +7,7 @@ import { db } from "./db.js";
 
 export const GATE_ROOM = "gate";
 export const ADMIN_ROOM = "admin";
+export const SESSION_EXPIRED_EVENT = "session.expired";
 
 export function shedRoom(code: string) {
     return `shed:${code}`;
@@ -82,7 +83,10 @@ export function attachSocket(httpServer: HttpServer) {
                 if (delay <= 0) {
                     return next(new Error("UNAUTHORIZED"));
                 }
-                const timer = setTimeout(() => socket.disconnect(true), delay);
+                const timer = setTimeout(() => {
+                    socket.emit(SESSION_EXPIRED_EVENT, { at: Date.now() });
+                    socket.disconnect(true);
+                }, delay);
                 socket.on("disconnect", () => clearTimeout(timer));
             }
             return next();

@@ -13,7 +13,7 @@ export const logsRoutes = Router();
 logsRoutes.get(
     "/",
     auth,
-    requireRole("ADMIN", "GATE"),
+    requireRole("ADMIN"),
     validateQuery(listLogsQuerySchema),
     logsController.listLogs,
 );
@@ -24,4 +24,12 @@ logsRoutes.get(
     requireRole("ADMIN"),
     validateQuery(exportLogsQuerySchema),
     logsController.exportLogs,
+);
+
+logsRoutes.get(
+    "/export.xlsx",
+    auth,
+    requireRole("ADMIN"),
+    validateQuery(exportLogsQuerySchema),
+    logsController.exportLogsXlsx,
 );

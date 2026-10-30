@@ -1,11 +1,14 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { ok } from "../../utils/responses.js";
+import { fail, ok } from "../../utils/responses.js";
 import { getDashboard } from "./dashboard.service.js";
 
 export const getDashboardHandler = asyncHandler(
-    async (_req: Request, res: Response) => {
-        const dashboard = await getDashboard();
+    async (req: Request, res: Response) => {
+        if (!req.user) {
+            return fail(res, "UNAUTHORIZED", "Invalid credentials", 401);
+        }
+        const dashboard = await getDashboard(req.user);
         return ok(res, dashboard);
     },
 );

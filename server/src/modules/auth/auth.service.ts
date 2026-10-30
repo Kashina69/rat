@@ -12,7 +12,7 @@ export async function login(input: LoginInput) {
         return null;
     }
     const valid = await comparePassword(input.password, user.passwordHash);
-    if (!valid) {
+    if (!valid || !user.isActive) {
         return null;
     }
     const token = signToken({

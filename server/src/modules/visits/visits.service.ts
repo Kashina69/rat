@@ -3,6 +3,7 @@ import { emitToRooms, getIo, roomsForSheds } from "../../config/socket.js";
 import type { RequestUser } from "../../types/domain.js";
 import { writeAudit } from "../../utils/audit.js";
 import { ApiError } from "../../utils/errors.js";
+import { withDeadlockRetry } from "../../utils/retry.js";
 import {
     lockItemForUpdate,
     lockLineForUpdate,
@@ -81,24 +82,19 @@ export async function createVisit(input: CreateVisitInput, gateUserId: number) {
         return visit;
     });
 
-    const full = await db.visit.findUniqueOrThrow({
-        where: { id: created.id },
-        include: visitInclude,
-    });
+    const dto = toVisitDto(created);
     const at = new Date().toISOString();
-    const rooms = roomsForSheds(
-        full.requirementLines.map((line) => line.shed.code),
-    );
+    const rooms = roomsForSheds(dto.lines.map((line) => line.shed.code));
     emitToRooms(getIo(), rooms, "requirement.created", {
-        visitId: full.id,
+        visitId: dto.id,
         at,
     });
     emitToRooms(getIo(), rooms, "visit.statusChanged", {
-        visitId: full.id,
-        status: full.status,
+        visitId: dto.id,
+        status: dto.status,
         at,
     });
-    return { visit: toVisitDto(full), warnings };
+    return { visit: dto, warnings };
 }
 
 export async function listInside() {
@@ -170,7 +166,7 @@ export async function cancelVisit(visitId: number, userId: number) {
 }
 
 export async function cancelLine(lineId: number, userId: number) {
-    const line = await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
         const lineRef = await tx.requirementLine.findUnique({
             where: { id: lineId },
             select: { visitId: true },
@@ -219,21 +215,20 @@ export async function cancelLine(lineId: number, userId: number) {
             where: { id: lineId },
             include: lineInclude,
         });
-        return full;
+        return { line: toLineDto(full), visitStatus: next };
     });
-    const dto = toLineDto(line);
     const at = new Date().toISOString();
-    const visit = await db.visit.findUnique({
-        where: { id: dto.visitId },
-        select: { status: true },
-    });
     emitToRooms(
         getIo(),
-        roomsForSheds([(dto.shed as { code: string }).code]),
+        roomsForSheds([result.line.shed.code]),
         "visit.statusChanged",
-        { visitId: dto.visitId, status: visit?.status ?? null, at },
+        {
+            visitId: result.line.visitId,
+            status: result.visitStatus,
+            at,
+        },
     );
-    return dto;
+    return result.line;
 }
 
 export async function confirmLine(
@@ -248,214 +243,218 @@ export async function confirmLine(
             403,
         );
     }
-    const line = await db.$transaction(async (tx) => {
-        const lineRef = await tx.requirementLine.findUnique({
-            where: { id: lineId },
-            select: { visitId: true },
-        });
-        if (!lineRef) {
-            throw new ApiError("LINE_NOT_FOUND", "Line not found", 404);
-        }
-        const visit = await lockVisitForUpdate(tx, lineRef.visitId);
-        if (!visit) {
-            throw new ApiError("VISIT_NOT_FOUND", "Visit not found", 404);
-        }
-        const locked = await lockLineForUpdate(tx, lineId);
-        if (!locked) {
-            throw new ApiError("LINE_NOT_FOUND", "Line not found", 404);
-        }
-        if (
-            user.role === "SHED" &&
-            user.shedId !== null &&
-            locked.shedId !== user.shedId
-        ) {
-            throw new ApiError(
-                "CROSS_SHED",
-                "Cannot confirm lines of another shed",
-                403,
+    const result = await withDeadlockRetry(() =>
+        db.$transaction(async (tx) => {
+            const lineRef = await tx.requirementLine.findUnique({
+                where: { id: lineId },
+                select: { visitId: true },
+            });
+            if (!lineRef) {
+                throw new ApiError("LINE_NOT_FOUND", "Line not found", 404);
+            }
+            const visit = await lockVisitForUpdate(tx, lineRef.visitId);
+            if (!visit) {
+                throw new ApiError("VISIT_NOT_FOUND", "Visit not found", 404);
+            }
+            const locked = await lockLineForUpdate(tx, lineId);
+            if (!locked) {
+                throw new ApiError("LINE_NOT_FOUND", "Line not found", 404);
+            }
+            if (
+                user.role === "SHED" &&
+                (user.shedId === null || locked.shedId !== user.shedId)
+            ) {
+                throw new ApiError(
+                    "CROSS_SHED",
+                    "Cannot confirm lines of another shed",
+                    403,
+                );
+            }
+            if (visit.status === "CHECKED_OUT") {
+                throw new ApiError(
+                    "VISIT_CHECKED_OUT",
+                    "Visit already checked out",
+                    409,
+                );
+            }
+            if (visit.status === "CANCELLED") {
+                throw new ApiError(
+                    "VISIT_CANCELLED",
+                    "Visit is cancelled",
+                    409,
+                );
+            }
+            if (locked.status !== "PENDING") {
+                throw new ApiError(
+                    "ALREADY_CONFIRMED",
+                    "Line already confirmed",
+                    409,
+                );
+            }
+            if (loadedQty < 1 || loadedQty > locked.requestedQty) {
+                throw new ApiError(
+                    "INVALID_QTY",
+                    `loadedQty must be between 1 and ${locked.requestedQty}`,
+                    400,
+                );
+            }
+            const item = await lockItemForUpdate(tx, locked.itemId);
+            if (!item) {
+                throw new ApiError("ITEM_NOT_FOUND", "Item not found", 404);
+            }
+            const balanceAfter = item.currentStock - loadedQty;
+            await tx.item.update({
+                where: { id: item.id },
+                data: { currentStock: balanceAfter },
+            });
+            await tx.requirementLine.update({
+                where: { id: lineId },
+                data: {
+                    status: "LOADED",
+                    loadedQty,
+                    confirmedByUserId: user.id,
+                    confirmedAt: new Date(),
+                },
+            });
+            await tx.stockLedger.create({
+                data: {
+                    itemId: item.id,
+                    requirementLineId: lineId,
+                    visitId: locked.visitId,
+                    actorUserId: user.id,
+                    type: "OUT",
+                    delta: -loadedQty,
+                    balanceAfter,
+                },
+            });
+            const statuses = await lockLineStatusesForUpdate(
+                tx,
+                locked.visitId,
             );
-        }
-        if (visit.status === "CHECKED_OUT") {
-            throw new ApiError(
-                "VISIT_CHECKED_OUT",
-                "Visit already checked out",
-                409,
-            );
-        }
-        if (visit.status === "CANCELLED") {
-            throw new ApiError("VISIT_CANCELLED", "Visit is cancelled", 409);
-        }
-        if (locked.status !== "PENDING") {
-            throw new ApiError(
-                "ALREADY_CONFIRMED",
-                "Line already confirmed",
-                409,
-            );
-        }
-        if (loadedQty < 1 || loadedQty > locked.requestedQty) {
-            throw new ApiError(
-                "INVALID_QTY",
-                `loadedQty must be between 1 and ${locked.requestedQty}`,
-                400,
-            );
-        }
-        const item = await lockItemForUpdate(tx, locked.itemId);
-        if (!item) {
-            throw new ApiError("ITEM_NOT_FOUND", "Item not found", 404);
-        }
-        if (!item.isActive) {
-            throw new ApiError("ITEM_INACTIVE", "Item is archived", 409);
-        }
-        if (item.currentStock < loadedQty) {
-            throw new ApiError(
-                "INSUFFICIENT_STOCK",
-                `Only ${item.currentStock} in stock`,
-                409,
-            );
-        }
-        const balanceAfter = item.currentStock - loadedQty;
-        await tx.item.update({
-            where: { id: item.id },
-            data: { currentStock: balanceAfter },
-        });
-        await tx.requirementLine.update({
-            where: { id: lineId },
-            data: {
-                status: "LOADED",
-                loadedQty,
-                confirmedByUserId: user.id,
-                confirmedAt: new Date(),
-            },
-        });
-        await tx.stockLedger.create({
-            data: {
-                itemId: item.id,
-                requirementLineId: lineId,
-                visitId: locked.visitId,
-                actorUserId: user.id,
-                type: "OUT",
-                delta: -loadedQty,
-                balanceAfter,
-            },
-        });
-        const statuses = await lockLineStatusesForUpdate(tx, locked.visitId);
-        const next = recalcVisitStatus(statuses);
-        await tx.visit.update({
-            where: { id: locked.visitId },
-            data: { status: next },
-        });
-        await writeAudit(tx, {
-            userId: user.id,
-            action: "LINE_CONFIRMED",
-            entity: "RequirementLine",
-            entityId: lineId,
-        });
-        const full = await tx.requirementLine.findUniqueOrThrow({
-            where: { id: lineId },
-            include: lineInclude,
-        });
-        return full;
-    });
-    const dto = toLineDto(line);
-    const at = new Date().toISOString();
-    const confirmedVisit = await db.visit.findUnique({
-        where: { id: dto.visitId },
-        include: {
-            requirementLines: {
+            const next = recalcVisitStatus(statuses);
+            await tx.visit.update({
+                where: { id: locked.visitId },
+                data: { status: next },
+            });
+            await writeAudit(tx, {
+                userId: user.id,
+                action: "LINE_CONFIRMED",
+                entity: "RequirementLine",
+                entityId: lineId,
+            });
+            const full = await tx.requirementLine.findUniqueOrThrow({
+                where: { id: lineId },
+                include: lineInclude,
+            });
+            const visitSheds = await tx.requirementLine.findMany({
+                where: { visitId: locked.visitId },
                 select: { shed: { select: { code: true } } },
-            },
-        },
-    });
-    const confirmedRooms = roomsForSheds([
-        (dto.shed as { code: string }).code,
-        ...(confirmedVisit?.requirementLines.map((row) => row.shed.code) ?? []),
-    ]);
-    emitToRooms(getIo(), confirmedRooms, "loading.confirmed", {
-        lineId: dto.id,
-        visitId: dto.visitId,
-        itemId: dto.itemId,
+            });
+            return {
+                line: toLineDto(full),
+                visitStatus: next,
+                visitShedCodes: visitSheds.map((row) => row.shed.code),
+            };
+        }),
+    );
+    const { line } = result;
+    const at = new Date().toISOString();
+    const rooms = roomsForSheds([line.shed.code, ...result.visitShedCodes]);
+    emitToRooms(getIo(), rooms, "loading.confirmed", {
+        lineId: line.id,
+        visitId: line.visitId,
+        itemId: line.itemId,
         at,
     });
-    emitToRooms(getIo(), confirmedRooms, "visit.statusChanged", {
-        visitId: dto.visitId,
-        status: confirmedVisit?.status ?? null,
+    emitToRooms(getIo(), rooms, "visit.statusChanged", {
+        visitId: line.visitId,
+        status: result.visitStatus,
         at,
     });
-    emitToRooms(getIo(), confirmedRooms, "stock.updated", {
-        itemId: dto.itemId,
+    emitToRooms(getIo(), rooms, "stock.updated", {
+        itemId: line.itemId,
         at,
     });
-    emitToRooms(getIo(), confirmedRooms, "inventory.changed", {
-        itemId: dto.itemId,
+    emitToRooms(getIo(), rooms, "inventory.changed", {
+        itemId: line.itemId,
         at,
     });
-    return dto;
+    return line;
 }
 
 export async function checkoutVisit(visitId: number, userId: number) {
-    const visit = await db.$transaction(async (tx) => {
-        const lockedVisit = await lockVisitForUpdate(tx, visitId);
-        if (!lockedVisit) {
-            throw new ApiError("VISIT_NOT_FOUND", "Visit not found", 404);
-        }
-        if (lockedVisit.status === "CHECKED_OUT") {
-            throw new ApiError(
-                "ALREADY_CHECKED_OUT",
-                "Visit already checked out",
-                409,
-            );
-        }
-        if (lockedVisit.status === "CANCELLED") {
-            throw new ApiError("VISIT_CANCELLED", "Visit is cancelled", 409);
-        }
-        const lines = await lockVisitLinesForUpdate(tx, visitId);
-        if (lines.some((line) => line.status === "PENDING")) {
-            throw new ApiError(
-                "NOT_READY",
-                "All lines must be loaded before checkout",
-                409,
-            );
-        }
-        if (!lines.some((line) => line.status === "LOADED")) {
-            throw new ApiError(
-                "NOTHING_LOADED",
-                "No loaded lines to checkout",
-                409,
-            );
-        }
-        const updated = await tx.visit.updateMany({
-            where: { id: visitId, status: "READY_FOR_CHECKOUT" },
-            data: {
-                status: "CHECKED_OUT",
-                checkoutAt: new Date(),
-                checkoutByUserId: userId,
-            },
-        });
-        if (updated.count === 0) {
-            throw new ApiError(
-                "NOT_READY",
-                "Visit is not ready for checkout",
-                409,
-            );
-        }
-        await writeAudit(tx, {
-            userId,
-            action: "VISIT_CHECKOUT",
-            entity: "Visit",
-            entityId: visitId,
-        });
-        const full = await tx.visit.findUniqueOrThrow({
-            where: { id: visitId },
-            include: visitInclude,
-        });
-        return full;
-    });
-    const dto = toVisitDto(visit);
+    const visit = await withDeadlockRetry(() =>
+        db.$transaction(async (tx) => {
+            const lockedVisit = await lockVisitForUpdate(tx, visitId);
+            if (!lockedVisit) {
+                throw new ApiError("VISIT_NOT_FOUND", "Visit not found", 404);
+            }
+            if (lockedVisit.status === "CHECKED_OUT") {
+                throw new ApiError(
+                    "ALREADY_CHECKED_OUT",
+                    "Visit already checked out",
+                    409,
+                );
+            }
+            if (lockedVisit.status === "CANCELLED") {
+                throw new ApiError(
+                    "VISIT_CANCELLED",
+                    "Visit is cancelled",
+                    409,
+                );
+            }
+            const lines = await lockVisitLinesForUpdate(tx, visitId);
+            if (lines.some((line) => line.status === "PENDING")) {
+                throw new ApiError(
+                    "NOT_READY",
+                    "All lines must be loaded before checkout",
+                    409,
+                );
+            }
+            if (!lines.some((line) => line.status === "LOADED")) {
+                throw new ApiError(
+                    "NOTHING_LOADED",
+                    "No loaded lines to checkout",
+                    409,
+                );
+            }
+            const updated = await tx.visit.updateMany({
+                where: { id: visitId, status: "READY_FOR_CHECKOUT" },
+                data: {
+                    status: "CHECKED_OUT",
+                    checkoutAt: new Date(),
+                    checkoutByUserId: userId,
+                },
+            });
+            if (updated.count === 0) {
+                throw new ApiError(
+                    "NOT_READY",
+                    "Visit is not ready for checkout",
+                    409,
+                );
+            }
+            await writeAudit(tx, {
+                userId,
+                action: "VISIT_CHECKOUT",
+                entity: "Visit",
+                entityId: visitId,
+            });
+            const full = await tx.visit.findUniqueOrThrow({
+                where: { id: visitId },
+                include: visitInclude,
+            });
+            return toVisitDto(full);
+        }),
+    );
     emitToRooms(
         getIo(),
-        roomsForSheds(dto.lines.map((line) => line.shed.code)),
+        roomsForSheds(visit.lines.map((line) => line.shed.code)),
         "visit.statusChanged",
-        { visitId: dto.id, status: dto.status, at: new Date().toISOString() },
+        {
+            visitId: visit.id,
+            status: visit.status,
+            at: new Date().toISOString(),
+        },
     );
-    return dto;
+    return visit;
 }

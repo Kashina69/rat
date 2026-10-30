@@ -1,5 +1,7 @@
+import type { Prisma } from "@prisma/client";
 import { db } from "../../config/db.js";
 import { emitToRooms, getIo, roomsForSheds } from "../../config/socket.js";
+import type { RequestUser } from "../../types/domain.js";
 import { writeAudit } from "../../utils/audit.js";
 import { ApiError } from "../../utils/errors.js";
 import { lockItemForUpdate } from "../../utils/rowLocks.js";
@@ -29,12 +31,31 @@ function toItemDto(item: {
     return item;
 }
 
-export async function listItems(query: ListItemsQuery) {
+export async function listItems(query: ListItemsQuery, caller: RequestUser) {
+    const where: Prisma.ItemWhereInput = {
+        ...(query.includeInactive ? {} : { isActive: true }),
+    };
+    if (caller.role === "SHED") {
+        if (caller.shedId === null) {
+            throw new ApiError(
+                "CROSS_SHED",
+                "Shed user is not linked to a shed",
+                403,
+            );
+        }
+        if (query.shed !== undefined && query.shed !== caller.shedCode) {
+            throw new ApiError(
+                "CROSS_SHED",
+                "Cannot view another shed's items",
+                403,
+            );
+        }
+        where.shedId = caller.shedId;
+    } else if (query.shed !== undefined) {
+        where.shed = { code: query.shed };
+    }
     const items = await db.item.findMany({
-        where: {
-            ...(query.includeInactive ? {} : { isActive: true }),
-            ...(query.shed ? { shed: { code: query.shed } } : {}),
-        },
+        where,
         include: itemInclude,
         orderBy: [{ shedId: "asc" }, { name: "asc" }],
     });
@@ -103,54 +124,26 @@ export async function updateItem(
     userId: number,
 ) {
     const item = await getItemOrThrow(itemId);
-    if (input.isActive === undefined) {
-        const hasHistory = await db.stockLedger.findFirst({
-            where: { itemId },
-            select: { id: true },
-        });
-        if (hasHistory) {
-            const forbidden =
-                (input.name !== undefined && input.name !== item.name) ||
-                (input.category !== undefined &&
-                    input.category !== item.category);
-            if (forbidden) {
-                throw new ApiError(
-                    "ITEM_HAS_HISTORY",
-                    "Cannot rename item after transactions exist",
-                    409,
-                );
-            }
-        }
-    }
+    const archived = input.isActive === false && item.isActive;
     const updated = await db.$transaction(async (tx) => {
-        if (input.isActive === false && item.isActive) {
-            await tx.item.update({
-                where: { id: itemId },
-                data: { isActive: false },
-            });
-        } else {
-            await tx.item.update({
-                where: { id: itemId },
-                data: {
-                    ...(input.name !== undefined ? { name: input.name } : {}),
-                    ...(input.category !== undefined
-                        ? { category: input.category }
-                        : {}),
-                    ...(input.reorderLevel !== undefined
-                        ? { reorderLevel: input.reorderLevel }
-                        : {}),
-                    ...(input.isActive !== undefined
-                        ? { isActive: input.isActive }
-                        : {}),
-                },
-            });
-        }
+        await tx.item.update({
+            where: { id: itemId },
+            data: {
+                ...(input.name !== undefined ? { name: input.name } : {}),
+                ...(input.category !== undefined
+                    ? { category: input.category }
+                    : {}),
+                ...(input.reorderLevel !== undefined
+                    ? { reorderLevel: input.reorderLevel }
+                    : {}),
+                ...(input.isActive !== undefined
+                    ? { isActive: input.isActive }
+                    : {}),
+            },
+        });
         await writeAudit(tx, {
             userId,
-            action:
-                input.isActive === false && item.isActive
-                    ? "ITEM_ARCHIVED"
-                    : "ITEM_UPDATED",
+            action: archived ? "ITEM_ARCHIVED" : "ITEM_UPDATED",
             entity: "Item",
             entityId: itemId,
         });
@@ -159,7 +152,12 @@ export async function updateItem(
             include: itemInclude,
         });
     });
-    return toItemDto(updated);
+    const dto = toItemDto(updated);
+    const at = new Date().toISOString();
+    const rooms = roomsForSheds([(dto.shed as { code: string }).code]);
+    emitToRooms(getIo(), rooms, "stock.updated", { itemId: dto.id, at });
+    emitToRooms(getIo(), rooms, "inventory.changed", { itemId: dto.id, at });
+    return dto;
 }
 
 export async function deleteItem(itemId: number, userId: number) {
@@ -175,32 +173,48 @@ export async function deleteItem(itemId: number, userId: number) {
         });
         return { line, ledger };
     });
-    if (usage.line || usage.ledger) {
-        const archived = await db.$transaction(async (tx) => {
-            await tx.item.update({
-                where: { id: itemId },
-                data: { isActive: false },
-            });
-            await writeAudit(tx, {
-                userId,
-                action: "ITEM_ARCHIVED",
-                entity: "Item",
-                entityId: itemId,
-            });
-            return tx.item.findUniqueOrThrow({
-                where: { id: itemId },
-                include: itemInclude,
-            });
+    const result =
+        usage.line || usage.ledger
+            ? await archiveItem(itemId, userId)
+            : await removeItem(item, userId);
+    const at = new Date().toISOString();
+    const rooms = roomsForSheds([(item.shed as { code: string }).code]);
+    emitToRooms(getIo(), rooms, "stock.updated", { itemId, at });
+    emitToRooms(getIo(), rooms, "inventory.changed", { itemId, at });
+    return result;
+}
+
+async function archiveItem(itemId: number, userId: number) {
+    const archived = await db.$transaction(async (tx) => {
+        await tx.item.update({
+            where: { id: itemId },
+            data: { isActive: false },
         });
-        return { archived: true, item: toItemDto(archived) };
-    }
+        await writeAudit(tx, {
+            userId,
+            action: "ITEM_ARCHIVED",
+            entity: "Item",
+            entityId: itemId,
+        });
+        return tx.item.findUniqueOrThrow({
+            where: { id: itemId },
+            include: itemInclude,
+        });
+    });
+    return { archived: true, item: toItemDto(archived) };
+}
+
+async function removeItem(
+    item: Awaited<ReturnType<typeof getItemOrThrow>>,
+    userId: number,
+) {
     await db.$transaction(async (tx) => {
-        await tx.item.delete({ where: { id: itemId } });
+        await tx.item.delete({ where: { id: item.id } });
         await writeAudit(tx, {
             userId,
             action: "ITEM_DELETED",
             entity: "Item",
-            entityId: itemId,
+            entityId: item.id,
         });
     });
     return { archived: false, item: toItemDto(item) };
@@ -215,6 +229,9 @@ export async function stockIn(
         const current = await lockItemForUpdate(tx, itemId);
         if (!current) {
             throw new ApiError("ITEM_NOT_FOUND", "Item not found", 404);
+        }
+        if (!current.isActive) {
+            throw new ApiError("ITEM_INACTIVE", "Item is archived", 409);
         }
         const balanceAfter = current.currentStock + input.qty;
         await tx.item.update({
@@ -255,10 +272,16 @@ export async function adjustStock(
     input: AdjustStockInput,
     userId: number,
 ) {
+    if (input.qty === 0) {
+        throw new ApiError("INVALID_QTY", "qty must not be 0", 400);
+    }
     const item = await db.$transaction(async (tx) => {
         const current = await lockItemForUpdate(tx, itemId);
         if (!current) {
             throw new ApiError("ITEM_NOT_FOUND", "Item not found", 404);
+        }
+        if (!current.isActive) {
+            throw new ApiError("ITEM_INACTIVE", "Item is archived", 409);
         }
         const balanceAfter = current.currentStock + input.qty;
         if (balanceAfter < 0) {

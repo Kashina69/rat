@@ -9,16 +9,25 @@ import { dashboardRoutes } from "./modules/dashboard/dashboard.routes.js";
 import { itemsRoutes } from "./modules/items/items.routes.js";
 import { logsRoutes } from "./modules/logs/logs.routes.js";
 import { shedsRoutes } from "./modules/sheds/sheds.routes.js";
+import { usersRoutes } from "./modules/users/users.routes.js";
 import {
     requirementLinesRoutes,
     visitsRoutes,
 } from "./modules/visits/visits.routes.js";
 
+function trustProxyHops(): number {
+    const hops = Number(process.env.TRUST_PROXY ?? "0");
+    return Number.isInteger(hops) && hops > 0 ? hops : 0;
+}
+
 export function createApp() {
     const app = express();
 
     app.disable("x-powered-by");
-    app.set("trust proxy", 1);
+    const hops = trustProxyHops();
+    if (hops > 0) {
+        app.set("trust proxy", hops);
+    }
     app.use(helmet());
     app.use(cors(corsOptions));
     app.use(express.json({ limit: "100kb" }));
@@ -36,6 +45,7 @@ export function createApp() {
     app.use("/api/items", itemsRoutes);
     app.use("/api/logs", logsRoutes);
     app.use("/api/dashboard", dashboardRoutes);
+    app.use("/api/users", usersRoutes);
 
     app.use(notFound);
     app.use(errorHandler);

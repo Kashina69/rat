@@ -12,8 +12,11 @@ import type {
 import * as itemsService from "./items.service.js";
 
 export const listItems = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+        return fail(res, "UNAUTHORIZED", "Invalid credentials", 401);
+    }
     const query = (req.validatedQuery ?? {}) as ListItemsQuery;
-    const items = await itemsService.listItems(query);
+    const items = await itemsService.listItems(query, req.user);
     return ok(res, items);
 });
 

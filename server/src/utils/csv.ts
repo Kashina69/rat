@@ -1,9 +1,12 @@
+const FORMULA_PREFIX = /^[=+\-@]/;
+const LEADING_IGNORED = /^[\s\p{Cc}]+/u;
+
 export function escapeCsvCell(value: unknown): string {
-    let text = value === null || value === undefined ? "" : String(value);
-    if (/^[=+\-@]/.test(text)) {
-        text = `'${text}`;
-    }
-    return `"${text.replace(/"/g, '""')}"`;
+    const text = value === null || value === undefined ? "" : String(value);
+    const neutralized = FORMULA_PREFIX.test(text.replace(LEADING_IGNORED, ""))
+        ? `'${text}`
+        : text;
+    return `"${neutralized.replace(/"/g, '""')}"`;
 }
 
 export function toCsv(headers: string[], rows: unknown[][]): string {

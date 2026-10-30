@@ -1,5 +1,5 @@
+import { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
-import { db } from "../src/config/db.js";
 import { confirmLine } from "../src/modules/visits/visits.service.js";
 import {
     makeItem,
@@ -21,7 +21,7 @@ beforeEach(async () => {
     await truncateAll();
 });
 
-test("forced ledger failure rolls back stock + line", async () => {
+test("duplicate requirementLineId makes confirm fail with P2002 and rolls back stock + line", async () => {
     const shed = await makeShed();
     const shedUser = await makeUser("SHED", shed.id);
     const gate = await makeUser("GATE");
@@ -43,25 +43,58 @@ test("forced ledger failure rolls back stock + line", async () => {
         },
     });
 
-    await expect(
-        confirmLine(lineId, 10, {
-            id: shedUser.id,
-            role: "SHED",
-            shedId: shed.id,
-            shedCode: shed.code,
-        }),
-    ).rejects.toThrow();
+    const failure = await confirmLine(lineId, 10, {
+        id: shedUser.id,
+        role: "SHED",
+        shedId: shed.id,
+        shedCode: shed.code,
+    }).then(
+        () => null,
+        (error: unknown) => error,
+    );
 
-    const updated = await prisma.item.findUniqueOrThrow({
+    expect(failure).toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
+    const prismaFailure = failure as Prisma.PrismaClientKnownRequestError;
+    expect(prismaFailure.code).toBe("P2002");
+    const detail =
+        `${prismaFailure.message} ${JSON.stringify(prismaFailure.meta ?? {})}`.toLowerCase();
+    expect(
+        detail.includes("requirementlineid") ||
+            detail.includes("requirement_line_id"),
+    ).toBe(true);
+
+    const unchangedItem = await prisma.item.findUniqueOrThrow({
         where: { id: item.id },
     });
-    expect(updated.currentStock).toBe(50);
+    expect(unchangedItem.currentStock).toBe(50);
 
-    const line = await prisma.requirementLine.findUniqueOrThrow({
+    const unchangedLine = await prisma.requirementLine.findUniqueOrThrow({
         where: { id: lineId },
     });
-    expect(line.status).toBe("PENDING");
+    expect(unchangedLine.status).toBe("PENDING");
+    expect(unchangedLine.loadedQty).toBeNull();
+    expect(unchangedLine.confirmedByUserId).toBeNull();
+    expect(unchangedLine.confirmedAt).toBeNull();
 
-    const check = await db.item.findUnique({ where: { id: item.id } });
-    expect(check?.currentStock).toBe(50);
+    const unchangedVisit = await prisma.visit.findUniqueOrThrow({
+        where: { id: visit.id },
+    });
+    expect(unchangedVisit.status).toBe("AWAITING_LOADING");
+
+    const ledgerRows = await prisma.stockLedger.findMany({
+        where: { itemId: item.id },
+        orderBy: { id: "asc" },
+    });
+    expect(ledgerRows.map((row) => row.type)).toEqual(["OPENING", "OUT"]);
+    expect(ledgerRows.map((row) => row.delta)).toEqual([50, -1]);
+    expect(
+        await prisma.stockLedger.count({
+            where: { requirementLineId: lineId },
+        }),
+    ).toBe(1);
+
+    const confirmAudits = await prisma.auditEvent.findMany({
+        where: { action: "LINE_CONFIRMED", entityId: String(lineId) },
+    });
+    expect(confirmAudits).toHaveLength(0);
 });

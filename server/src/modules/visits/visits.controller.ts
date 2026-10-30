@@ -5,7 +5,6 @@ import { fail, ok } from "../../utils/responses.js";
 import type {
     ConfirmLineInput,
     CreateVisitInput,
-    ListVisitsQuery,
 } from "../../validators/visit.schemas.js";
 import * as visitsService from "./visits.service.js";
 
@@ -25,12 +24,7 @@ export const createVisit = asyncHandler(async (req: Request, res: Response) => {
     return ok(res, result, 201);
 });
 
-export const listVisits = asyncHandler(async (req: Request, res: Response) => {
-    const query = req.validatedQuery as ListVisitsQuery | undefined;
-    if (query?.status === "inside") {
-        const visits = await visitsService.listInside();
-        return ok(res, visits);
-    }
+export const listVisits = asyncHandler(async (_req: Request, res: Response) => {
     const visits = await visitsService.listInside();
     return ok(res, visits);
 });

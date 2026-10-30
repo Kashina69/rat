@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Prisma, Role } from "@prisma/client";
+import type { Prisma, Role, VisitStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { prisma } from "./setup.js";
 
@@ -65,6 +65,7 @@ export async function makeItem(
 export async function makeVisitWithLines(
     gateUserId: number,
     lines: Array<{ itemId: number; shedId: number; qty: number }>,
+    overrides: { arrivalAt?: Date; status?: VisitStatus } = {},
 ) {
     return prisma.visit.create({
         data: {
@@ -73,6 +74,7 @@ export async function makeVisitWithLines(
             party: "Party",
             status: "AWAITING_LOADING",
             gateUserId,
+            ...overrides,
             requirementLines: {
                 create: lines.map((line) => ({
                     itemId: line.itemId,

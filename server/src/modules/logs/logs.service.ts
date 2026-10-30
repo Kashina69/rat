@@ -1,7 +1,12 @@
 import type { Prisma } from "@prisma/client";
+import ExcelJS from "exceljs";
 import { db } from "../../config/db.js";
 import { toCsv } from "../../utils/csv.js";
-import { formatIST } from "../../utils/datetime.js";
+import {
+    formatIST,
+    istDayEndUtc,
+    istDayStartUtc,
+} from "../../utils/datetime.js";
 import type {
     ExportLogsQuery,
     ListLogsQuery,
@@ -30,9 +35,11 @@ function buildLineWhere(
     if (filters.from !== undefined || filters.to !== undefined) {
         visit.arrivalAt = {
             ...(filters.from !== undefined
-                ? { gte: new Date(filters.from) }
+                ? { gte: istDayStartUtc(filters.from) }
                 : {}),
-            ...(filters.to !== undefined ? { lte: new Date(filters.to) } : {}),
+            ...(filters.to !== undefined
+                ? { lte: istDayEndUtc(filters.to) }
+                : {}),
         };
     }
     if (Object.keys(visit).length > 0) {
@@ -98,6 +105,8 @@ function toLogDto(line: LogRow) {
     };
 }
 
+type LogDto = ReturnType<typeof toLogDto>;
+
 export async function listLogs(query: ListLogsQuery) {
     const where = buildLineWhere(query);
     const [totalItems, lines] = await db.$transaction([
@@ -122,56 +131,82 @@ export async function listLogs(query: ListLogsQuery) {
     };
 }
 
-const exportHeaders = [
-    "Vehicle",
-    "Driver",
-    "Party",
-    "Arrival (IST)",
-    "Checkout (IST)",
-    "Visit Status",
-    "Shed",
-    "Item",
-    "Category",
-    "Unit",
-    "Requested",
-    "Loaded",
-    "Shortfall",
-    "Line Status",
-    "Display",
-    "Gate User",
-    "Confirmed By",
-    "Confirmed At (IST)",
+type ExportCell = string | number | null;
+
+interface ExportColumn {
+    header: string;
+    width: number;
+    value: (row: LogDto) => ExportCell;
+}
+
+const exportColumns: ExportColumn[] = [
+    { header: "Vehicle", width: 16, value: (row) => row.vehicle },
+    { header: "Driver", width: 18, value: (row) => row.driver },
+    { header: "Party", width: 20, value: (row) => row.party },
+    { header: "Arrival (IST)", width: 20, value: (row) => row.arrivalIST },
+    { header: "Checkout (IST)", width: 20, value: (row) => row.checkoutIST },
+    { header: "Visit Status", width: 18, value: (row) => row.visitStatus },
+    { header: "Shed", width: 10, value: (row) => row.shed },
+    { header: "Item", width: 24, value: (row) => row.item.name },
+    { header: "Category", width: 16, value: (row) => row.item.category },
+    { header: "Unit", width: 10, value: (row) => row.item.unit },
+    { header: "Requested", width: 12, value: (row) => row.requested },
+    { header: "Loaded", width: 10, value: (row) => row.loaded },
+    { header: "Shortfall", width: 12, value: (row) => row.shortfall },
+    { header: "Line Status", width: 14, value: (row) => row.lineStatus },
+    { header: "Display", width: 12, value: (row) => row.display },
+    { header: "Gate User", width: 16, value: (row) => row.gateUser.username },
+    {
+        header: "Confirmed By",
+        width: 16,
+        value: (row) => row.confirmedBy?.username ?? null,
+    },
+    {
+        header: "Confirmed At (IST)",
+        width: 20,
+        value: (row) => row.confirmedAtIST,
+    },
 ];
 
-export async function exportLogsCsv(filters: ExportLogsQuery) {
+const exportHeaders = exportColumns.map((column) => column.header);
+
+function toSheetValue(value: ExportCell): ExportCell {
+    return value === "" ? null : value;
+}
+
+async function loadExportRows(filters: ExportLogsQuery): Promise<LogDto[]> {
     const lines = await db.requirementLine.findMany({
         where: buildLineWhere(filters),
         include: lineWithRelations,
         orderBy: [{ visit: { arrivalAt: "desc" } }, { id: "asc" }],
     });
-    const dtos = lines.map(toLogDto);
+    return lines.map(toLogDto);
+}
+
+export async function exportLogsCsv(filters: ExportLogsQuery) {
+    const rows = await loadExportRows(filters);
     const csv = toCsv(
         exportHeaders,
-        dtos.map((row) => [
-            row.vehicle,
-            row.driver,
-            row.party,
-            row.arrivalIST,
-            row.checkoutIST,
-            row.visitStatus,
-            row.shed,
-            row.item.name,
-            row.item.category,
-            row.item.unit,
-            row.requested,
-            row.loaded ?? "",
-            row.shortfall ?? "",
-            row.lineStatus,
-            row.display,
-            row.gateUser.username,
-            row.confirmedBy?.username ?? "",
-            row.confirmedAtIST,
-        ]),
+        rows.map((row) => exportColumns.map((column) => column.value(row))),
     );
-    return { csv, count: dtos.length };
+    return { csv, count: rows.length };
+}
+
+export async function exportLogsXlsx(filters: ExportLogsQuery) {
+    const rows = await loadExportRows(filters);
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Logs");
+    sheet.columns = exportColumns.map((column) => ({
+        header: column.header,
+        width: column.width,
+    }));
+    for (const row of rows) {
+        sheet.addRow(
+            exportColumns.map((column) => toSheetValue(column.value(row))),
+        );
+    }
+    sheet.getRow(1).font = { bold: true };
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+    const buffer = await workbook.xlsx.writeBuffer();
+    return { buffer: Buffer.from(buffer), count: rows.length };
 }

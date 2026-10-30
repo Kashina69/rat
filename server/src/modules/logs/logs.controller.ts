@@ -20,3 +20,19 @@ export const exportLogs = asyncHandler(async (req: Request, res: Response) => {
     res.setHeader("Content-Disposition", 'attachment; filename="logs.csv"');
     return res.status(200).send(`\uFEFF${csv}`);
 });
+
+export const exportLogsXlsx = asyncHandler(
+    async (req: Request, res: Response) => {
+        const query = req.validatedQuery as ExportLogsQuery;
+        const { buffer } = await logsService.exportLogsXlsx(query);
+        res.setHeader(
+            "Content-Type",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        );
+        res.setHeader(
+            "Content-Disposition",
+            'attachment; filename="logs.xlsx"',
+        );
+        return res.status(200).send(buffer);
+    },
+);

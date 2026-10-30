@@ -1,21 +1,47 @@
+import type { Prisma, VisitStatus } from "@prisma/client";
 import { db } from "../../config/db.js";
+import type { RequestUser } from "../../types/domain.js";
+import { ApiError } from "../../utils/errors.js";
 
-export async function getDashboard() {
+const closedStatuses: VisitStatus[] = ["CHECKED_OUT", "CANCELLED"];
+
+function shedScope(caller: RequestUser): number | null {
+    if (caller.role !== "SHED") {
+        return null;
+    }
+    if (caller.shedId === null) {
+        throw new ApiError(
+            "CROSS_SHED",
+            "Shed user is not linked to a shed",
+            403,
+        );
+    }
+    return caller.shedId;
+}
+
+export async function getDashboard(caller: RequestUser) {
+    const ownShedId = shedScope(caller);
+    const insideVisit: Prisma.VisitWhereInput = {
+        status: { notIn: closedStatuses },
+    };
+    if (ownShedId !== null) {
+        insideVisit.requirementLines = { some: { shedId: ownShedId } };
+    }
     const [insideCount, pendingLines, lowStock] = await db.$transaction([
-        db.visit.count({
-            where: { status: { notIn: ["CHECKED_OUT", "CANCELLED"] } },
-        }),
+        db.visit.count({ where: insideVisit }),
         db.requirementLine.findMany({
             where: {
                 status: "PENDING",
-                visit: {
-                    status: { notIn: ["CHECKED_OUT", "CANCELLED"] },
-                },
+                ...(ownShedId !== null ? { shedId: ownShedId } : {}),
+                visit: { status: { notIn: closedStatuses } },
             },
             select: { shedId: true },
         }),
         db.item.findMany({
-            where: { isActive: true },
+            where: {
+                isActive: true,
+                ...(ownShedId !== null ? { shedId: ownShedId } : {}),
+            },
             include: { shed: true },
             orderBy: { currentStock: "asc" },
         }),

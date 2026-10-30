@@ -45,18 +45,6 @@ export function assertProductionEnv(): void {
             "Refusing to start: CORS_ORIGIN must be an explicit origin allowlist in production (comma-separated, no *).",
         );
     }
-    const seedPasswords = [
-        "SEED_ADMIN_PASSWORD",
-        "SEED_GATE_PASSWORD",
-        "SEED_SHEDA_PASSWORD",
-        "SEED_SHEDB_PASSWORD",
-    ];
-    const missing = seedPasswords.filter((key) => !process.env[key]);
-    if (missing.length > 0) {
-        throw new Error(
-            `Refusing to seed in production: missing ${missing.join(", ")}.`,
-        );
-    }
 }
 
 function parseOrigins(raw: string): string[] {
