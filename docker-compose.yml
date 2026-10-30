@@ -19,7 +19,8 @@ services:
       start_period: 20s
 
   api:
-    build: ./server
+    build:
+      context: ./server
     restart: unless-stopped
     env_file:
       - ./server/.env
@@ -32,17 +33,46 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:5000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
 
   web:
-    build: ./client
+    build:
+      context: ./client
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:5000}
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:5000"
-      NEXT_PUBLIC_SOCKET_URL: "http://localhost:5000"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
     ports:
       - "3000:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
 
 volumes:
   dms-mysql:

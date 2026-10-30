@@ -1,3 +1,10 @@
+# Production stack (self-contained, not an override of docker-compose.yml).
+# Run from this directory:
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Required variables: MYSQL_ROOT_PASSWORD, MYSQL_PASSWORD, DATABASE_URL,
+# JWT_SECRET, CORS_ORIGIN, NEXT_PUBLIC_API_URL, NEXT_PUBLIC_SOCKET_URL.
+# NEXT_PUBLIC_* values are baked into the web bundle at build time.
+
 services:
   mysql:
     image: mysql:8.4
@@ -10,14 +17,19 @@ services:
     volumes:
       - dms-mysql:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent",
+        ]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 20s
+      retries: 12
+      start_period: 30s
 
   api:
-    build: ./server
+    build:
+      context: ./server
     restart: always
     environment:
       NODE_ENV: production
@@ -27,18 +39,52 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN required}
+    ports:
+      - "5000:5000"
     depends_on:
       mysql:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:5000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
 
   web:
-    build: ./client
+    build:
+      context: ./client
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL required}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:?NEXT_PUBLIC_SOCKET_URL required}
     restart: always
     environment:
-      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?PUBLIC_API_URL required}
-      NEXT_PUBLIC_SOCKET_URL: ${PUBLIC_SOCKET_URL:?PUBLIC_SOCKET_URL required}
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    ports:
+      - "3000:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
 
 volumes:
   dms-mysql:
