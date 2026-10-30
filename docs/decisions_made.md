@@ -1,6 +1,6 @@
 > Map: @index.md · Truth: @docs/decisions_made.md, @docs/project-status.md
 
-# Decisions made — DMS POC
+# Decisions made — Realtime Ammo Tracking (RAT) POC
 
 Log only: decision, choice, why, consequence. Behaviour today and open gaps live
 on @docs/project-status.md. The original spec and the phase plans are in git
@@ -21,7 +21,7 @@ history, not truth.
 | 11 | Logs and dashboard | Log filtered by vehicle, item, shed, line status and `from`/`to`, paginated, exported with the same filters. Dashboard: vehicles inside, pending lines per shed, low stock | That is what the office asks for at the counter | Date filters are depot-local (IST) days, so `to=today` includes today. "Low stock" is `currentStock <= reorderLevel`; a full per-shed current-stock list is not built |
 | 12 | Deploy | Docker Compose: `mysql:8.4`, `api`, `web`, a dev file, and a self-contained `docker-compose.prod.yml`; HTTPS in front for PWA install | One repo, one command, reproducible demo host | Prod API refuses to boot without `JWT_SECRET` (≥32) and `CORS_ORIGIN`; seeding needs all four `SEED_*_PASSWORD` values; `NEXT_PUBLIC_*` are build args, not runtime env |
 | 13 | Demo | Seeded depot (2 sheds, ~10 items, 4 logins) plus a scripted 3–5 vehicle run including a multi-shed and an over-stock vehicle, from installed tablets | The demo is the acceptance test for the POC | Demo claims only count once the run happened — it has not |
-| 14 | Quality | Express 5 + TypeScript strict, `route → controller → service → Prisma`, zod at every input boundary, `{ data }` / `{ error: { code, message } }`, no classes, append-only ledger, server-side shed scoping, Vitest + Supertest on a real `dms_test`, Biome + `tsc --noEmit` | Small POC, high blast radius on stock numbers: invariants beat abstraction | Client role checks are UX only, never security. `SUM(ledger.delta) == item.currentStock` is a test-enforced invariant. `truncateAll` refuses any DB not ending `_test`. No CI |
+| 14 | Quality | Express 5 + TypeScript strict, `route → controller → service → Prisma`, zod at every input boundary, `{ data }` / `{ error: { code, message } }`, no classes, append-only ledger, server-side shed scoping, Vitest + Supertest on a real `rat_test`, Biome + `tsc --noEmit` | Small POC, high blast radius on stock numbers: invariants beat abstraction | Client role checks are UX only, never security. `SUM(ledger.delta) == item.currentStock` is a test-enforced invariant. `truncateAll` refuses any DB not ending `_test`. No CI |
 | 15 | Documentation | @docs/decisions_made.md + @docs/project-status.md are the authoritative pair; spec and phase plans are history | Docs had drifted badly (old status chain, fields that never existed) | Behaviour changes update this file or the status file in the same change |
 
 Related: @docs/01-architecture.md, @docs/02-data-model.md, @docs/project-status.md, @docs/00-product-scope.md

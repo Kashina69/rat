@@ -33,7 +33,7 @@ Versions from both `package.json` files and the Dockerfiles (2026-10-30).
 | Realtime | Socket.IO server / client | `^4.8.4` / `^4.8.4` | Rooms + reconnection on flaky tablet Wi-Fi; chosen over polling/SSE |
 | Auth | jsonwebtoken + bcryptjs (12 rounds) | `^9.0.3` / `^3.0.3` | No native build step, no session store, access-only tokens |
 | Export | exceljs in `logs/logs.service.ts` | `^4.4.0` | Real `.xlsx` with number cells, no office dependency; CSV stays hand-rolled in `src/utils/csv.ts` |
-| Quality | Vitest + Supertest on real MySQL `dms_test`; Biome + `tsc --noEmit`; tsx watch | `^5.0.5`, `^7.3.1`; `^2.4.2`; `^4.19.2` | Locks and transactions need a real DB, not a mocked Prisma; one lint+format tool; no CI exists |
+| Quality | Vitest + Supertest on real MySQL `rat_test`; Biome + `tsc --noEmit`; tsx watch | `^5.0.5`, `^7.3.1`; `^2.4.2`; `^4.19.2` | Locks and transactions need a real DB, not a mocked Prisma; one lint+format tool; no CI exists |
 
 Deliberate non-choices: PostgreSQL (replaced by MySQL 8.4), Redis or any queue
 (stock writes must be synchronous), refresh tokens / revocation store / session

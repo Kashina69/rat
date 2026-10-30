@@ -4,7 +4,7 @@
 
 An integration suite against a **real MySQL 8.4 database** (no sqlite, no mocks), with factories and a
 ledger-invariant checker. **2026-10-30: 12 files, 40 tests, all passing.** No CI runs it; realtime, PWA
-and tablets are manual-only. Create `dms_test` first — @docs/04-setup-and-deploy.md §6.
+and tablets are manual-only. Create `rat_test` first — @docs/04-setup-and-deploy.md §6.
 
 ## 1. Stack
 
@@ -12,7 +12,7 @@ and tablets are manual-only. Create `dms_test` first — @docs/04-setup-and-depl
 | --- | --- |
 | Runner | Vitest (`npm test` = `vitest run`) — `server/vitest.config.ts`: node env, `tests/setup-env.ts`, `testTimeout: 30_000`, `fileParallelism: false` |
 | HTTP | Supertest against `createApp()` — the real Express app, no listening socket |
-| Database | Real MySQL 8.4, schema `dms_test`, tables created by `prisma migrate deploy` |
+| Database | Real MySQL 8.4, schema `rat_test`, tables created by `prisma migrate deploy` |
 | Fixtures | `server/tests/factories.ts`: `makeShed`, `makeUser`, `makeItem` (with its `OPENING` row), `makeVisitWithLines` |
 
 `truncateAll()` runs before every test and files never overlap. Tests are typechecked: `tsconfig.json`
@@ -23,19 +23,19 @@ includes `tests/`, `tsconfig.build.json` excludes them.
 ```bash
 export PATH=/home/prince/.nvm/versions/node/v22.23.2/bin:$PATH
 cd /home/prince/code/office/projects/rit/server
-TEST_DATABASE_URL=mysql://dms:dms@127.0.0.1:3306/dms_test npm test
+TEST_DATABASE_URL=mysql://rat:rat@127.0.0.1:3306/rat_test npm test
 ```
 
 That exact command produced §3. `tests/setup-env.ts` requires `TEST_DATABASE_URL`, copies it into
 `DATABASE_URL`, forces `NODE_ENV=test` and supplies a test-only `JWT_SECRET`, so no `server/.env` is
 needed; `migrateTestDb()` migrates once per run; `truncateAll()` **refuses any database whose name does
-not end in `_test`**, so a mistyped URL aborts instead of wiping `dms`. One file or test:
+not end in `_test`**, so a mistyped URL aborts instead of wiping `rat`. One file or test:
 `npx vitest run tests/checkout-race.test.ts`, `npx vitest run -t "duplicate checkout"`. Bare `npx vitest`
-is watch mode and `npm test` is one destructive run — never point it at `dms`.
+is watch mode and `npm test` is one destructive run — never point it at `rat`.
 
 ## 3. Result and per-file coverage
 
-Last full run: **12 files, 40 tests, all pass** — `dms_test`, MySQL 8.4, Node 22.23.2.
+Last full run: **12 files, 40 tests, all pass** — `rat_test`, MySQL 8.4, Node 22.23.2.
 
 | File | Tests | What it asserts |
 | --- | ---: | --- |
@@ -81,7 +81,7 @@ race windows and last-admin protection are untested.
 
 ## 7. Verification status
 
-- `npm test` → 12 files, 40 tests, **40/40 pass** on `dms_test` (2026-10-30).
+- `npm test` → 12 files, 40 tests, **40/40 pass** on `rat_test` (2026-10-30).
 - Server and client `typecheck`, `lint` (74 / 69 files) and `build` clean; Next 16.4.3 standalone.
 - No CI, Docker build, deployment or device check has exercised the suite.
 

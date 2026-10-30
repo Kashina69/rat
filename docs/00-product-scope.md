@@ -2,9 +2,9 @@
 
 # 00 — Product scope
 
-Depot Management System (DMS), proof of concept for **one ammunition depot**: phone calls, paper
+Realtime Ammo Tracking (RAT), proof of concept for **one ammunition depot**: phone calls, paper
 slips and guesswork between gate, sheds and office become three browser tablets kept in sync live.
-Client brief `docs/DMS_POC_Concept_Document.docx.pdf` (Oct 27 2026); where this page differs, this
+Client brief `docs/RAT_POC_Concept_Document.docx.pdf` (Oct 27 2026); where this page differs, this
 page and @docs/decisions_made.md win.
 
 ## Who uses it

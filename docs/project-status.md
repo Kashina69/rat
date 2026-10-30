@@ -1,6 +1,6 @@
 > Map: @index.md · Truth: @docs/decisions_made.md, @docs/project-status.md
 
-# Project status — DMS POC
+# Project status — Realtime Ammo Tracking (RAT) POC
 
 **Verdict (2026-10-30): the gate→shed→gate loop works end to end.** The review
 blockers and majors are fixed, both packages typecheck, lint and build clean, and
@@ -62,13 +62,13 @@ working-tree change** (`git status` shows the pass). Target: @docs/decisions_mad
 
 ## Verification
 
-Node `v22.23.2`; MySQL 8.4 local with `dms` and `dms_test`.
+Node `v22.23.2`; MySQL 8.4 local with `rat` and `rat_test`.
 
 | Check | Command | Result |
 | --- | --- | --- |
 | Server types (incl. tests) | `cd server && npm run typecheck` | clean |
 | Server lint / build | `cd server && npm run lint && npm run build` | clean, 74 files; `dist/index.js` |
-| MySQL suite | `cd server && TEST_DATABASE_URL="mysql://dms:dms@127.0.0.1:3306/dms_test" npm test` | **12 files / 40 tests, all pass** |
+| MySQL suite | `cd server && TEST_DATABASE_URL="mysql://rat:rat@127.0.0.1:3306/rat_test" npm test` | **12 files / 40 tests, all pass** |
 | Migrations | `cd server && npx prisma migrate status` | clean; **1 squashed init migration** `20261029110447_init` (`users.isActive`, `reason VARCHAR(255)`) |
 | Client types / lint / build | `cd client && npm run typecheck && npm run lint && npm run build` | clean, 69 files; Next 16.4.3, `.next/standalone/server.js` |
 | Prod compose | `docker compose -f docker-compose.prod.yml config` | valid with dummy secrets |

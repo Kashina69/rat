@@ -24,7 +24,7 @@ npm run dev                                         # tsx watch → :5000, /heal
 cd ../client && cp .env.example .env.local && npm ci && npm run dev   # next dev → :3000
 ```
 
-Dev DB credentials come from `docker-compose.yml`: db `dms`, user `dms`, password `dms`, root
+Dev DB credentials come from `docker-compose.yml`: db `rat`, user `rat`, password `rat`, root
 password `root`. `server/.env` is loaded by `dotenv` from `server/`; start the API there — it refuses
 to boot without `DATABASE_URL` and `JWT_SECRET`.
 
@@ -34,8 +34,8 @@ to boot without `DATABASE_URL` and `JWT_SECRET`.
 | --- | --- | --- | --- |
 | `PORT`, `HOST` | no | `5000`, `0.0.0.0` | HTTP + Socket.IO port and bind address. |
 | `NODE_ENV` | no | `development` | `production` enables `assertProductionEnv()` and the seed's production rules. |
-| `DATABASE_URL` | **yes** | `mysql://dms:dms@localhost:3306/dms` | Prisma URL; in containers the host is `mysql:3306`. |
-| `TEST_DATABASE_URL` | tests only | `mysql://dms:dms@localhost:3306/dms_test` | Read by `tests/setup-env.ts`, which forces it into `DATABASE_URL` and sets `NODE_ENV=test`. Pass inline. |
+| `DATABASE_URL` | **yes** | `mysql://rat:rat@localhost:3306/rat` | Prisma URL; in containers the host is `mysql:3306`. |
+| `TEST_DATABASE_URL` | tests only | `mysql://rat:rat@localhost:3306/rat_test` | Read by `tests/setup-env.ts`, which forces it into `DATABASE_URL` and sets `NODE_ENV=test`. Pass inline. |
 | `JWT_SECRET` | **yes** | long random string | ≥ 32 chars, not a known default in production, else the API refuses to boot. |
 | `JWT_EXPIRES_IN` | no | `8h` | Access-token lifetime (one shift); no refresh tokens. |
 | `CORS_ORIGIN` | no | `http://localhost:3000` | Comma-separated exact origins; `*` rejected in production. Shared with Socket.IO. |
@@ -66,21 +66,21 @@ A `NEXT_PUBLIC_*` change needs a dev restart and a production **rebuild** (§10)
 **One squashed init migration:** `20261029110447_init` — full schema (sheds, users, items, visits,
 requirement lines, stock ledger, audit events) including `users.isActive` and
 `stock_ledger.reason VARCHAR(255)`. New schema changes must be new migrations, never edits to `init`.
-A P3014 from `migrate dev` means the `dms` user cannot create a shadow DB — grant it as root
-(`docker compose exec mysql mysql -uroot -proot -e "GRANT ALL PRIVILEGES ON *.* TO 'dms'@'%';"`) or
+A P3014 from `migrate dev` means the `rat` user cannot create a shadow DB — grant it as root
+(`docker compose exec mysql mysql -uroot -proot -e "GRANT ALL PRIVILEGES ON *.* TO 'rat'@'%';"`) or
 migrate as root; `migrate deploy` never needs one.
 
-## 6. `dms_test` (test database)
+## 6. `rat_test` (test database)
 
 Suites use real MySQL because the stock code takes `SELECT … FOR UPDATE` row locks. One-time setup:
 
 ```bash
-docker compose exec mysql mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS dms_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-docker compose exec mysql mysql -uroot -proot -e "GRANT ALL PRIVILEGES ON dms_test.* TO 'dms'@'%'; FLUSH PRIVILEGES;"
+docker compose exec mysql mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS rat_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+docker compose exec mysql mysql -uroot -proot -e "GRANT ALL PRIVILEGES ON rat_test.* TO 'rat'@'%'; FLUSH PRIVILEGES;"
 ```
 
-`dms_test` is disposable: `truncateAll()` refuses any database whose name does not end in `_test`, so
-a mistyped URL aborts instead of wiping `dms`. Never point `TEST_DATABASE_URL` at `dms`; run
+`rat_test` is disposable: `truncateAll()` refuses any database whose name does not end in `_test`, so
+a mistyped URL aborts instead of wiping `rat`. Never point `TEST_DATABASE_URL` at `rat`; run
 command: @docs/06-testing.md.
 
 ## 7. Running both apps
@@ -150,7 +150,7 @@ HTTPS endpoint or public link — validated configuration, not a proven recipe.
 
 Required (`${VAR:?…}` aborts if missing): `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD`, `DATABASE_URL`,
 `JWT_SECRET`, `CORS_ORIGIN`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SOCKET_URL`. Optional:
-`MYSQL_DATABASE`/`MYSQL_USER` (default `dms`), `JWT_EXPIRES_IN` (`8h`). `ALLOW_DESTRUCTIVE_SEED` is
+`MYSQL_DATABASE`/`MYSQL_USER` (default `rat`), `JWT_EXPIRES_IN` (`8h`). `ALLOW_DESTRUCTIVE_SEED` is
 not set by compose; export it only for a deliberate production `--reset`.
 
 - **Ports:** mysql 3306 unpublished in prod (required); api 5000 published but should become private;
