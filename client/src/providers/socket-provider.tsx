@@ -9,10 +9,12 @@ import {
     useMemo,
     useState,
 } from "react";
+import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
 import {
     type AppSocket,
     createSocket,
+    SESSION_EXPIRED_EVENT,
     SOCKET_EVENTS,
 } from "@/lib/socket-client";
 import { useAuth } from "./auth-provider";
@@ -54,8 +56,20 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
         const refetchAll = () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.all });
-            void queryClient.refetchQueries({ queryKey: queryKeys.all });
             setLastSyncAt(Date.now());
+        };
+
+        let ended = false;
+        const endSession = () => {
+            if (ended) {
+                return;
+            }
+            ended = true;
+            instance.removeAllListeners();
+            instance.disconnect();
+            setConnection("disconnected");
+            logout();
+            toast.error("Session expired. Sign in again.");
         };
 
         instance.on("connect", () => {
@@ -64,10 +78,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         });
         instance.on("reconnect", refetchAll);
         instance.on("disconnect", () => setConnection("disconnected"));
+        instance.on(SESSION_EXPIRED_EVENT, endSession);
         instance.on("connect_error", (error: Error) => {
             if (error.message === "UNAUTHORIZED") {
-                instance.disconnect();
-                logout();
+                endSession();
                 return;
             }
             setConnection("disconnected");

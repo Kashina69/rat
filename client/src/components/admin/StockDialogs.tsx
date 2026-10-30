@@ -16,6 +16,16 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { friendlyMessage } from "@/lib/errors";
 import type { InventoryItem } from "@/types/api";
 
+function sanitizeSignedQty(value: string) {
+    const negative = value.trimStart().startsWith("-");
+    const digits = value.replace(/\D/g, "");
+    return negative ? `-${digits}` : digits;
+}
+
+function parseSignedQty(value: string) {
+    return /^-?\d+$/.test(value) ? Number.parseInt(value, 10) : null;
+}
+
 export function StockInDialog({
     item,
     open,
@@ -165,12 +175,16 @@ export function AdjustDialog({
                         <Input
                             id="adjust-qty"
                             value={qty}
-                            onChange={(e) => setQty(e.target.value)}
-                            type="number"
-                            step={1}
-                            inputMode="numeric"
+                            onChange={(e) =>
+                                setQty(sanitizeSignedQty(e.target.value))
+                            }
+                            type="text"
+                            autoComplete="off"
                             placeholder="e.g. -5 or 10"
                         />
+                        <span className="text-sm text-muted">
+                            Use a leading minus to remove stock.
+                        </span>
                     </label>
                     <label
                         htmlFor="adjust-reason"
@@ -199,9 +213,13 @@ export function AdjustDialog({
                         type="button"
                         disabled={adjust.isPending || offline || !item}
                         onClick={async () => {
-                            const parsed = Number(qty);
-                            if (!item || !Number.isInteger(parsed)) {
+                            const parsed = parseSignedQty(qty);
+                            if (!item || parsed === null) {
                                 toast.error("Qty must be a whole number.");
+                                return;
+                            }
+                            if (parsed === 0) {
+                                toast.error("Qty cannot be 0.");
                                 return;
                             }
                             if (!reason.trim()) {

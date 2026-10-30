@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { useAuth } from "@/providers/auth-provider";
 import { type Role, roleHome } from "@/types/api";
 
@@ -20,16 +20,20 @@ export function RoleGuard({
 }) {
     const { user, isAuthenticated } = useAuth();
     const router = useRouter();
+    const blockedHome =
+        user && !allow.includes(user.role) ? roleHome(user.role) : null;
+    const redirectTo = isAuthenticated ? blockedHome : "/login";
+    const lastRedirect = useRef<string | null>(null);
 
     useEffect(() => {
-        if (!isAuthenticated) {
-            router.replace("/login");
+        if (!redirectTo) {
+            lastRedirect.current = null;
             return;
         }
-        if (user && !allow.includes(user.role)) {
-            router.replace(roleHome(user.role));
-        }
-    }, [isAuthenticated, user, allow, router]);
+        if (lastRedirect.current === redirectTo) return;
+        lastRedirect.current = redirectTo;
+        router.replace(redirectTo);
+    }, [redirectTo, router]);
 
     if (!isAuthenticated || !user) return null;
     if (!allow.includes(user.role)) {

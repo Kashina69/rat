@@ -46,6 +46,9 @@ export function VehicleForm() {
     const items = itemsQuery.data ?? [];
     const itemsLoading = itemsQuery.isPending;
     const itemsFailed = itemsQuery.isError;
+    const itemsUnavailable = itemsLoading || itemsFailed || items.length === 0;
+    const itemName = (itemId: number) =>
+        items.find((item) => item.id === itemId)?.name ?? `item ${itemId}`;
 
     return (
         <form
@@ -68,7 +71,7 @@ export function VehicleForm() {
                     });
                     if (result.warnings.length > 0) {
                         toast.warning(
-                            `Saved with low stock: ${result.warnings.map((w) => `item ${w.itemId} needs ${w.requested}, has ${w.available}`).join("; ")}`,
+                            `Saved with low stock: ${result.warnings.map((w) => `${itemName(w.itemId)} needs ${w.requested}, has ${w.available}`).join("; ")}`,
                         );
                     } else {
                         toast.success(
@@ -135,6 +138,23 @@ export function VehicleForm() {
 
             <div className="flex flex-col gap-3">
                 <span className="text-base font-semibold">Items</span>
+                {itemsFailed && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-700 bg-amber-950 p-3 text-base text-amber-100">
+                        <span className="flex-1">
+                            Item list failed to load — retry, or pick an item
+                            after reconnect.
+                        </span>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={itemsQuery.isFetching}
+                            onClick={() => void itemsQuery.refetch()}
+                        >
+                            {itemsQuery.isFetching ? "Retrying…" : "Retry"}
+                        </Button>
+                    </div>
+                )}
                 {fields.map((field, index) => (
                     <div
                         key={field.id}
@@ -210,7 +230,7 @@ export function VehicleForm() {
             <Button
                 type="submit"
                 size="lg"
-                disabled={createVisit.isPending || offline}
+                disabled={createVisit.isPending || offline || itemsUnavailable}
             >
                 {createVisit.isPending ? "Saving…" : "Register"}
             </Button>
@@ -219,10 +239,10 @@ export function VehicleForm() {
                     You are offline. Registration needs a connection.
                 </output>
             )}
-            {itemsQuery.isError && (
+            {!itemsLoading && !itemsFailed && items.length === 0 && (
                 <output className="text-base text-amber-300">
-                    Item list failed to load — you can still type, but pick an
-                    item after reconnect.
+                    No items are available — ask an admin to create one before
+                    registering.
                 </output>
             )}
         </form>

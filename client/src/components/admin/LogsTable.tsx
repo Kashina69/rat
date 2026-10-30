@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
     EmptyState,
@@ -21,6 +21,7 @@ import {
 import { useItems, useSheds } from "@/hooks/useItems";
 import { downloadLogsCsv, useLogs } from "@/hooks/useLogs";
 import { friendlyMessage } from "@/lib/errors";
+import { downloadLogsXlsx } from "@/lib/log-export";
 import type { LogFilters, LogStatus } from "@/types/api";
 
 const STATUSES: ("" | LogStatus)[] = ["", "PENDING", "LOADED", "CANCELLED"];
@@ -33,7 +34,7 @@ export function LogsTable() {
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
     const [page, setPage] = useState(1);
-    const [exporting, setExporting] = useState(false);
+    const [exporting, setExporting] = useState<"csv" | "xlsx" | null>(null);
     const shedsQuery = useSheds();
     const itemsQuery = useItems();
 
@@ -50,26 +51,47 @@ export function LogsTable() {
 
     const logsQuery = useLogs(filters);
 
+    useEffect(() => {
+        const data = logsQuery.data;
+        if (!data) return;
+        const lastPage = Math.max(1, data.pagination.totalPages);
+        if (page > lastPage) setPage(lastPage);
+    }, [logsQuery.data, page]);
+
     function resetPage() {
         setPage(1);
     }
 
-    async function onExport() {
-        setExporting(true);
+    const exportFilters = {
+        vehicle: filters.vehicle,
+        item: filters.item,
+        shed: filters.shed,
+        status: filters.status,
+        from: filters.from,
+        to: filters.to,
+    };
+
+    async function onExportCsv() {
+        setExporting("csv");
         try {
-            await downloadLogsCsv({
-                vehicle: filters.vehicle,
-                item: filters.item,
-                shed: filters.shed,
-                status: filters.status,
-                from: filters.from,
-                to: filters.to,
-            });
+            await downloadLogsCsv(exportFilters);
             toast.success("Logs exported");
         } catch (error) {
             toast.error(friendlyMessage(error));
         } finally {
-            setExporting(false);
+            setExporting(null);
+        }
+    }
+
+    async function onExportXlsx() {
+        setExporting("xlsx");
+        try {
+            await downloadLogsXlsx(exportFilters);
+            toast.success("Excel export downloaded");
+        } catch (error) {
+            toast.error(friendlyMessage(error));
+        } finally {
+            setExporting(null);
         }
     }
 
@@ -77,15 +99,24 @@ export function LogsTable() {
         <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-bold">Ledger logs</h2>
-                <Button
-                    type="button"
-                    variant="outline"
-                    className="ml-auto"
-                    disabled={exporting}
-                    onClick={() => void onExport()}
-                >
-                    {exporting ? "Exporting…" : "Export CSV"}
-                </Button>
+                <span className="ml-auto flex flex-wrap gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={exporting !== null}
+                        onClick={() => void onExportCsv()}
+                    >
+                        {exporting === "csv" ? "Exporting…" : "Export CSV"}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={exporting !== null}
+                        onClick={() => void onExportXlsx()}
+                    >
+                        {exporting === "xlsx" ? "Exporting…" : "Export Excel"}
+                    </Button>
+                </span>
             </div>
             <div className="grid gap-2 rounded-xl border border-line bg-surface-raised p-3 sm:grid-cols-3">
                 <label htmlFor="logs-vehicle" className="flex flex-col gap-1">
@@ -194,93 +225,106 @@ export function LogsTable() {
                     message="Could not load logs."
                     onRetry={() => void logsQuery.refetch()}
                 />
-            ) : logsQuery.data.rows.length === 0 ? (
-                <EmptyState
-                    title="No log rows"
-                    hint="Adjust filters to find ledger activity."
-                />
             ) : (
                 <>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Vehicle</TableHead>
-                                <TableHead>Shed / Item</TableHead>
-                                <TableHead>Qty</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Arrival</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {logsQuery.data.rows.map((row) => (
-                                <TableRow key={row.lineId}>
-                                    <TableCell>
-                                        <span className="font-semibold">
-                                            {row.vehicle}
-                                        </span>
-                                        <br />
-                                        <span className="text-sm text-muted">
-                                            {row.driver} · {row.party}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell>
-                                        {row.shed} · {row.item.name}
-                                        <br />
-                                        <span className="text-sm text-muted">
-                                            {row.visitStatus}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell>
-                                        req {row.requested}
-                                        {row.loaded !== null
-                                            ? ` / got ${row.loaded}`
-                                            : ""}
-                                        {row.shortfall !== null &&
-                                        row.shortfall > 0
-                                            ? ` (short ${row.shortfall})`
-                                            : ""}
-                                    </TableCell>
-                                    <TableCell>
-                                        <LineBadge display={row.display} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <span className="text-sm">
-                                            {row.arrivalIST}
-                                        </span>
-                                    </TableCell>
+                    {logsQuery.data.rows.length === 0 ? (
+                        <EmptyState
+                            title="No log rows on this page"
+                            hint={
+                                page > 1
+                                    ? "This page is empty — go back a page."
+                                    : "Adjust filters to find ledger activity."
+                            }
+                        />
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Vehicle</TableHead>
+                                    <TableHead>Shed / Item</TableHead>
+                                    <TableHead>Qty</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Arrival</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                    <div className="flex items-center justify-between text-base">
-                        <span className="text-muted">
-                            Page {logsQuery.data.pagination.page} of{" "}
-                            {logsQuery.data.pagination.totalPages} ·{" "}
-                            {logsQuery.data.pagination.totalItems} rows
-                        </span>
-                        <span className="flex gap-2">
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={page <= 1}
-                                onClick={() => setPage((p) => p - 1)}
-                            >
-                                Prev
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={
-                                    page >= logsQuery.data.pagination.totalPages
-                                }
-                                onClick={() => setPage((p) => p + 1)}
-                            >
-                                Next
-                            </Button>
-                        </span>
-                    </div>
+                            </TableHeader>
+                            <TableBody>
+                                {logsQuery.data.rows.map((row) => (
+                                    <TableRow key={row.lineId}>
+                                        <TableCell>
+                                            <span className="font-semibold">
+                                                {row.vehicle}
+                                            </span>
+                                            <br />
+                                            <span className="text-sm text-muted">
+                                                {row.driver} · {row.party}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            {row.shed} · {row.item.name}
+                                            <br />
+                                            <span className="text-sm text-muted">
+                                                {row.visitStatus}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            req {row.requested}
+                                            {row.loaded !== null
+                                                ? ` / got ${row.loaded}`
+                                                : ""}
+                                            {row.shortfall !== null &&
+                                            row.shortfall > 0
+                                                ? ` (short ${row.shortfall})`
+                                                : ""}
+                                        </TableCell>
+                                        <TableCell>
+                                            <LineBadge display={row.display} />
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="text-sm">
+                                                {row.arrivalIST}
+                                            </span>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                    {logsQuery.data.pagination.totalItems > 0 && (
+                        <div className="flex items-center justify-between text-base">
+                            <span className="text-muted">
+                                Page {logsQuery.data.pagination.page} of{" "}
+                                {logsQuery.data.pagination.totalPages} ·{" "}
+                                {logsQuery.data.pagination.totalItems} rows
+                            </span>
+                            <span className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={page <= 1}
+                                    onClick={() => setPage((p) => p - 1)}
+                                >
+                                    Prev
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={
+                                        page >=
+                                        Math.max(
+                                            1,
+                                            logsQuery.data.pagination
+                                                .totalPages,
+                                        )
+                                    }
+                                    onClick={() => setPage((p) => p + 1)}
+                                >
+                                    Next
+                                </Button>
+                            </span>
+                        </div>
+                    )}
                 </>
             )}
         </div>

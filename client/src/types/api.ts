@@ -128,6 +128,31 @@ export interface ShedQueue {
     lines: QueueLine[];
 }
 
+export interface ManagedUser {
+    id: number;
+    name: string;
+    username: string;
+    role: Role;
+    shedId: number | null;
+    shed: { code: string; name: string } | null;
+    isActive: boolean;
+}
+
+export interface CreateUserInput {
+    name: string;
+    username: string;
+    password: string;
+    role: Role;
+    shedId?: number | null;
+}
+
+export interface UpdateUserInput {
+    name?: string;
+    role?: Role;
+    shedId?: number | null;
+    isActive?: boolean;
+}
+
 export interface InventoryItem {
     id: number;
     name: string;

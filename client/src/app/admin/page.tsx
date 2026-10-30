@@ -3,6 +3,7 @@
 import { DashboardCards } from "@/components/admin/DashboardCards";
 import { InventoryTable } from "@/components/admin/InventoryTable";
 import { LogsTable } from "@/components/admin/LogsTable";
+import { UsersTable } from "@/components/admin/UsersTable";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { useSocketInvalidation } from "@/hooks/useSocket";
 
@@ -14,6 +15,7 @@ export default function AdminPage() {
                 <h1 className="text-2xl font-bold">Admin</h1>
                 <DashboardCards />
                 <InventoryTable />
+                <UsersTable />
                 <LogsTable />
             </section>
         </RoleGuard>

@@ -9,4 +9,5 @@ export const queryKeys = {
     dashboard: () => [...queryKeys.all, "dashboard"] as const,
     logs: (filters: LogFilters = {}) =>
         [...queryKeys.all, "logs", filters] as const,
+    users: () => [...queryKeys.all, "users"] as const,
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -9,19 +10,31 @@ import {
 } from "@/components/common/States";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useArchiveItem, useItems, useSheds } from "@/hooks/useItems";
+import { useArchiveItem, useSheds, useUpdateItem } from "@/hooks/useItems";
+import { apiFetch } from "@/lib/api-client";
 import { friendlyMessage } from "@/lib/errors";
+import { queryKeys } from "@/lib/query-keys";
 import type { InventoryItem } from "@/types/api";
 import { ItemEditor } from "./ItemEditor";
 import { AdjustDialog, StockInDialog } from "./StockDialogs";
 
 type DialogKind = "editor" | "stock-in" | "adjust" | null;
 
+function listItemsIncludingArchived(shed?: string): Promise<InventoryItem[]> {
+    const params = new URLSearchParams({ includeInactive: "true" });
+    if (shed) params.set("shed", shed);
+    return apiFetch<InventoryItem[]>(`/api/items?${params.toString()}`);
+}
+
 export function InventoryTable() {
     const [shed, setShed] = useState("");
-    const itemsQuery = useItems(shed || undefined);
+    const itemsQuery = useQuery({
+        queryKey: [...queryKeys.items(shed || "all"), "withInactive"],
+        queryFn: () => listItemsIncludingArchived(shed || undefined),
+    });
     const shedsQuery = useSheds();
     const archive = useArchiveItem();
+    const updateItem = useUpdateItem();
     const [dialog, setDialog] = useState<DialogKind>(null);
     const [creating, setCreating] = useState(false);
     const [selected, setSelected] = useState<InventoryItem | null>(null);
@@ -134,7 +147,7 @@ export function InventoryTable() {
                                 >
                                     Adjust
                                 </Button>
-                                {item.isActive && (
+                                {item.isActive ? (
                                     <Button
                                         type="button"
                                         size="sm"
@@ -156,6 +169,30 @@ export function InventoryTable() {
                                         }}
                                     >
                                         Archive
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        disabled={updateItem.isPending}
+                                        onClick={async () => {
+                                            try {
+                                                await updateItem.mutateAsync({
+                                                    id: item.id,
+                                                    input: { isActive: true },
+                                                });
+                                                toast.success(
+                                                    `${item.name} restored`,
+                                                );
+                                            } catch (error) {
+                                                toast.error(
+                                                    friendlyMessage(error),
+                                                );
+                                            }
+                                        }}
+                                    >
+                                        Restore
                                     </Button>
                                 )}
                             </div>

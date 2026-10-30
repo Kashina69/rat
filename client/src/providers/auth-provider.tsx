@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
     createContext,
     type ReactNode,
@@ -41,6 +42,7 @@ configureApiClient({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+    const queryClient = useQueryClient();
     const [user, setUser] = useState<AuthUser | null>(null);
     const [token, setToken] = useState<string | null>(null);
 
@@ -48,7 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentToken = null;
         setToken(null);
         setUser(null);
-    }, []);
+        queryClient.clear();
+    }, [queryClient]);
 
     useEffect(() => {
         onAuthExpired(logout);

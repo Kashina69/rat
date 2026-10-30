@@ -6,22 +6,23 @@ import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useAuth } from "@/providers/auth-provider";
-import { roleHome } from "@/types/api";
+import { type Role, roleHome } from "@/types/api";
 import { ConnectionBadge } from "../pwa/ConnectionBadge";
 import { InstallButton } from "../pwa/InstallButton";
 import { UpdatePrompt } from "../pwa/UpdatePrompt";
 
-const TABS = [
-    { href: "/gate", label: "Gate" },
-    { href: "/shed", label: "Shed" },
-    { href: "/admin", label: "Admin" },
-] as const;
+const ROLE_TABS: Record<Role, readonly { href: string; label: string }[]> = {
+    ADMIN: [{ href: "/admin", label: "Admin" }],
+    GATE: [{ href: "/gate", label: "Gate" }],
+    SHED: [{ href: "/shed", label: "Shed" }],
+};
 
 export function AppShell({ children }: { children: ReactNode }) {
     const { user, logout } = useAuth();
     const { state } = useNetworkStatus();
     const pathname = usePathname();
     const router = useRouter();
+    const tabs = user ? ROLE_TABS[user.role] : [];
 
     const handleLogout = () => {
         logout();
@@ -35,6 +36,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur"
                 style={{
                     paddingTop: "env(safe-area-inset-top)",
+                    paddingLeft: "env(safe-area-inset-left)",
+                    paddingRight: "env(safe-area-inset-right)",
                 }}
             >
                 <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-2 px-4 py-3">
@@ -64,12 +67,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                         )}
                     </div>
                 </div>
-                {user && (
+                {tabs.length > 0 && (
                     <nav
                         aria-label="Roles"
                         className="mx-auto flex w-full max-w-5xl gap-1 overflow-x-auto px-4 pb-3"
                     >
-                        {TABS.map((tab) => {
+                        {tabs.map((tab) => {
                             const active = pathname.startsWith(tab.href);
                             return (
                                 <Link

@@ -7,7 +7,6 @@ self.addEventListener("install", (event) => {
         caches
             .open(SHELL_CACHE)
             .then((cache) => cache.add(OFFLINE_URL))
-            .then(() => self.skipWaiting())
             .catch(() => undefined),
     );
 });
