@@ -14,7 +14,7 @@ const WEAK_SECRETS = new Set([
     "password",
     "secret",
     "test",
-    "dms-secret",
+    "rat-secret",
 ]);
 
 function isWeakSecret(secret: string): boolean {
