@@ -3,8 +3,54 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+const SHOULD_RESET = process.argv.includes("--reset");
+const IS_PROD = process.env.NODE_ENV === "production";
+
+function seedPassword(key: string, fallback: string): Promise<string> {
+    const value = process.env[key];
+    if (value) {
+        return bcrypt.hash(value, 12);
+    }
+    if (IS_PROD) {
+        throw new Error(`Refusing to seed in production: missing ${key}.`);
+    }
+    console.warn(`[seed] ${key} unset, using dev fallback password.`);
+    return bcrypt.hash(fallback, 12);
+}
+
+async function reset() {
+    await prisma.$transaction([
+        prisma.stockLedger.deleteMany(),
+        prisma.requirementLine.deleteMany(),
+        prisma.auditEvent.deleteMany(),
+        prisma.visit.deleteMany(),
+        prisma.item.deleteMany(),
+        prisma.user.deleteMany(),
+        prisma.shed.deleteMany(),
+    ]);
+}
+
 async function main() {
-    const passwordHash = await bcrypt.hash("Password@123", 12);
+    if (SHOULD_RESET) {
+        await reset();
+    }
+
+    const adminHash = await seedPassword(
+        "SEED_ADMIN_PASSWORD",
+        "Admin@123-dev-only",
+    );
+    const gateHash = await seedPassword(
+        "SEED_GATE_PASSWORD",
+        "Gate@123-dev-only",
+    );
+    const shedAHash = await seedPassword(
+        "SEED_SHEDA_PASSWORD",
+        "ShedA@123-dev-only",
+    );
+    const shedBHash = await seedPassword(
+        "SEED_SHEDB_PASSWORD",
+        "ShedB@123-dev-only",
+    );
 
     const shedA = await prisma.shed.upsert({
         where: { code: "SHED-A" },
@@ -106,12 +152,18 @@ async function main() {
         create: {
             name: "Admin",
             username: "admin",
-            passwordHash,
+            passwordHash: adminHash,
             role: "ADMIN",
         },
     });
 
     for (const item of items) {
+        const existing = await prisma.item.findFirst({
+            where: { shedId: item.shedId, name: item.name },
+        });
+        if (existing) {
+            continue;
+        }
         const created = await prisma.item.create({ data: item });
         await prisma.stockLedger.create({
             data: {
@@ -131,7 +183,7 @@ async function main() {
         create: {
             name: "Gate Clerk",
             username: "gate",
-            passwordHash,
+            passwordHash: gateHash,
             role: "GATE",
         },
     });
@@ -141,7 +193,7 @@ async function main() {
         create: {
             name: "Shed A Keeper",
             username: "sheda",
-            passwordHash,
+            passwordHash: shedAHash,
             role: "SHED",
             shedId: shedA.id,
         },
@@ -152,7 +204,7 @@ async function main() {
         create: {
             name: "Shed B Keeper",
             username: "shedb",
-            passwordHash,
+            passwordHash: shedBHash,
             role: "SHED",
             shedId: shedB.id,
         },
