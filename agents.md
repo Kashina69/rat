@@ -39,12 +39,24 @@ docs/    reference set + the two truth files
   (`403 CROSS_SHED`) when the claim is missing. Client checks are UX only.
 - **No secrets in logs** — no tokens, passwords, `DATABASE_URL`, `JWT_SECRET` or `SEED_*` values anywhere.
 
+## System Architecture & Code Map
+
+| Domain / Area | Client Page & Components | Client Hooks & Services | Server Route & Controller | Server Service / Core Logic |
+|---|---|---|---|---|
+| **Auth & Session** | `src/app/login/page.tsx`, `components/layout/RoleGuard.tsx` | `providers/auth-provider.tsx`, `lib/api-client.ts` (`loginRequest`, `meRequest`) | `src/modules/auth/auth.routes.ts`, `auth.controller.ts` | `auth.service.ts` (JWT, bcrypt) |
+| **Gate (Visits)** | `src/app/gate/page.tsx`, `components/gate/*` (`InsideList`, `VehicleForm`, `CheckoutButton`) | `hooks/useVisits.ts`, `services/visits.ts` | `src/modules/visits/visits.routes.ts`, `visits.controller.ts` | `visits.service.ts` (`createVisit`, `checkoutVisit`) |
+| **Shed (Queue & Confirm)** | `src/app/shed/page.tsx`, `components/shed/*` (`IncomingQueue`, `ShedStock`, `ConfirmDialog`) | `hooks/useShedQueue.ts`, `services/sheds.ts`, `services/items.ts` | `src/modules/sheds/sheds.routes.ts`, `src/modules/visits/` (`/api/requirement-lines/:id/confirm`) | `visits.service.ts` (`confirmLine` under rowLocks), `sheds.service.ts` |
+| **Admin (Inventory)** | `src/app/admin/page.tsx`, `components/admin/InventoryTable.tsx`, `ItemEditor.tsx`, `StockDialogs.tsx` | `hooks/useItems.ts`, `services/items.ts` | `src/modules/items/items.routes.ts`, `items.controller.ts` | `items.service.ts` (stock-in, adjust, archive) |
+| **Admin (Users)** | `src/app/admin/page.tsx`, `components/admin/UsersTable.tsx`, `UserEditor.tsx` | `hooks/useUsers.ts`, `services/users.ts` | `src/modules/users/users.routes.ts`, `users.controller.ts` | `users.service.ts` (create, enable/disable, reset password) |
+| **Logs & Export** | `src/app/admin/page.tsx`, `components/admin/LogsTable.tsx` | `hooks/useLogs.ts`, `services/logs.ts`, `lib/log-export.ts` | `src/modules/logs/logs.routes.ts`, `logs.controller.ts` | `logs.service.ts` (filter, CSV, XLSX) |
+| **Dashboard & Stats** | `src/app/admin/page.tsx`, `components/admin/DashboardCards.tsx` | `hooks/useDashboard.ts` | `src/modules/dashboard/dashboard.routes.ts` | `dashboard.service.ts` |
+| **Realtime Sockets** | `providers/socket-provider.tsx`, `components/pwa/ConnectionBadge.tsx` | `lib/socket-client.ts`, `hooks/useSocket.ts` | `src/config/socket.ts` | Server emits post-commit (`loading.confirmed`, `visit.statusChanged`, etc.) |
+
 ## Frontend conventions
 
 - **Server state is TanStack Query.** Keys in `src/lib/query-keys.ts`; mutations invalidate keys, never
   hand-patch. Socket events are invalidation hints only. Client state is context only; no Redux/Zustand.
-- **Token in memory only** (`auth-provider`), never `localStorage`/`sessionStorage` — a refresh relogins.
-  All HTTP through `src/lib/api-client.ts` + `src/services/*`.
+- **Session persistence:** Token and user profile live in `localStorage` (`rat_token`, `rat_user`), restored on load with `initializing` state, and verified via `GET /api/auth/me`. All HTTP through `src/lib/api-client.ts` + `src/services/*`.
 - Functional components, no classes, no manual memoisation (React Compiler is on); zod forms in
   `src/validations/`. Tablet-first: large targets, both orientations, visible offline state.
 

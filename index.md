@@ -97,6 +97,19 @@
 | Decision log | `@docs/decisions_made.md:L13` |
 | Original spec and phase plans | git history only; do not implement from them |
 
+## Code Map (Direct Implementation)
+
+| Feature / Domain | Client UI & Components | Client State & Service | Server Module (Route / Controller / Service) |
+|---|---|---|---|
+| **Auth & Session** | `client/src/app/login/`, `components/layout/RoleGuard.tsx` | `providers/auth-provider.tsx`, `lib/api-client.ts` | `server/src/modules/auth/` (`auth.routes.ts`, `auth.service.ts`) |
+| **Visits / Gate** | `client/src/app/gate/page.tsx`, `components/gate/*` | `hooks/useVisits.ts`, `services/visits.ts` | `server/src/modules/visits/` (`visits.routes.ts`, `visits.service.ts`) |
+| **Shed & Queue** | `client/src/app/shed/page.tsx`, `components/shed/*` | `hooks/useShedQueue.ts`, `services/sheds.ts` | `server/src/modules/sheds/`, `server/src/modules/visits/` (confirm) |
+| **Inventory & Stock** | `client/src/app/admin/`, `components/admin/InventoryTable.tsx` | `hooks/useItems.ts`, `services/items.ts` | `server/src/modules/items/` (`items.service.ts`, `rowLocks.ts`) |
+| **User Management** | `client/src/app/admin/`, `components/admin/UsersTable.tsx` | `hooks/useUsers.ts`, `services/users.ts` | `server/src/modules/users/` (`users.service.ts`) |
+| **Logs & Export** | `client/src/app/admin/`, `components/admin/LogsTable.tsx` | `hooks/useLogs.ts`, `services/logs.ts` | `server/src/modules/logs/` (`logs.service.ts`, CSV / XLSX) |
+| **Dashboard** | `client/src/app/admin/`, `components/admin/DashboardCards.tsx` | `hooks/useDashboard.ts` | `server/src/modules/dashboard/` |
+| **Sockets & Sync** | `client/src/providers/socket-provider.tsx` | `lib/socket-client.ts` | `server/src/config/socket.ts` |
+
 ## Entry points
 
 | File | Purpose |

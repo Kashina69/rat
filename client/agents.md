@@ -16,13 +16,23 @@ Next 16.4.3 (App Router, React 19, React Compiler): for routing, caching, `manif
 ## Non-negotiables
 - **Server state = TanStack Query.** Keys in `src/lib/query-keys.ts`; mutations invalidate keys and never
   hand-patch the cache. Socket events are hints only; clear the cache on logout.
-- **Token in memory only** (auth context). No `localStorage`/`sessionStorage`; a refresh or cold launch
-  means relogin, by design. All HTTP through `src/lib/api-client.ts` + `src/services/*`.
+- **Session persistence:** Token and user live in `localStorage` (`rat_token`, `rat_user`), restored on load in `providers/auth-provider.tsx` with `initializing` state, and verified via `GET /api/auth/me`. All HTTP through `src/lib/api-client.ts` + `src/services/*`.
 - Read `code` from `{ error: { code, message } }`, not the message; show it via Sonner. `403 ACCOUNT_DISABLED` ends the session — do not retry.
 - Functional components, no classes, no manual memoisation. Tablet-first: large targets, both
   orientations, visible offline state, confirm destructive actions. Role routing is UX only.
 - `NEXT_PUBLIC_*` URLs are inlined at build time — Docker build args, not runtime env. `public/sw.js` is
   hand-written: never cache API, auth or socket traffic, and install never calls `skipWaiting()`.
+
+## Role & Domain Map
+
+| Role / Feature | Route (`src/app/`) | Role Guard | React Query Hook | API Service | Socket Event Listened |
+|---|---|---|---|---|---|
+| **Auth** | `/login` | `RoleGuard` (bypass) | `useAuth()` | `lib/api-client.ts` (`loginRequest`, `meRequest`) | `session.expired` |
+| **Gate** | `/gate` | `allow: ["GATE", "ADMIN"]` | `useVisits()` | `services/visits.ts` | `visit.statusChanged`, `visit.created` |
+| **Shed** | `/shed` | `allow: ["SHED", "ADMIN"]` | `useShedQueue()`, `useItems()` | `services/sheds.ts`, `services/items.ts` | `loading.confirmed`, `shed.queueUpdated` |
+| **Admin (Stock)** | `/admin` | `allow: ["ADMIN"]` | `useItems()` | `services/items.ts` | `stock.updated`, `inventory.changed` |
+| **Admin (Users)** | `/admin` | `allow: ["ADMIN"]` | `useUsers()` | `services/users.ts` | - |
+| **Admin (Logs)** | `/admin` | `allow: ["ADMIN"]` | `useLogs()` | `services/logs.ts` | - |
 
 ## Commands
 ```bash
