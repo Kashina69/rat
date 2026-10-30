@@ -1,9 +1,4 @@
-import type {
-    AuthResponse,
-    AuthUser,
-    LoginInput,
-    Pagination,
-} from "@/types/api";
+import type { AuthResponse, LoginInput, Pagination } from "@/types/api";
 
 export type ApiError = Error & { code: string; status: number };
 
@@ -143,10 +138,6 @@ export function loginRequest(input: LoginInput): Promise<AuthResponse> {
         method: "POST",
         body: JSON.stringify(input),
     });
-}
-
-export function meRequest(): Promise<AuthUser> {
-    return apiFetch<AuthUser>("/api/auth/me");
 }
 
 export async function healthCheck(): Promise<boolean> {

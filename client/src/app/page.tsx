@@ -6,17 +6,16 @@ import { useAuth } from "@/providers/auth-provider";
 import { roleHome } from "@/types/api";
 
 export default function Home() {
-    const { user, isAuthenticated, initializing } = useAuth();
+    const { user, isAuthenticated } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        if (initializing) return;
         if (!isAuthenticated || !user) {
             router.replace("/login");
             return;
         }
         router.replace(roleHome(user.role));
-    }, [initializing, isAuthenticated, user, router]);
+    }, [isAuthenticated, user, router]);
 
     return (
         <div className="flex min-h-[50vh] items-center justify-center">
