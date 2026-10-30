@@ -11,5 +11,38 @@ services:
       - "3306:3306"
     volumes:
       - dms-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "dms", "-pdms"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    build: ./server
+    restart: unless-stopped
+    env_file:
+      - ./server/.env
+    environment:
+      DATABASE_URL: "mysql://dms:dms@mysql:3306/dms"
+      PORT: "5000"
+      HOST: "0.0.0.0"
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  web:
+    build: ./client
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:5000"
+      NEXT_PUBLIC_SOCKET_URL: "http://localhost:5000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
 volumes:
   dms-mysql:
