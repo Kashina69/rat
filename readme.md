@@ -6,11 +6,12 @@ Proof of concept for **one ammunition depot**: three browser tablets (an install
 phone calls and paper slips between the gate, the sheds and the office, and stay in sync live.
 
 ## Three roles, one loop
-| Role | Who | Does |
-| --- | --- | --- |
-| `ADMIN` | depot officer | inventory, stock-in/adjust, logs + CSV/Excel export, users |
-| `GATE` | gate security | register an arriving vehicle + requirement lines, check out |
-| `SHED` | storekeeper, one login per shed | own incoming queue, confirm loaded qty, own stock |
+
+| Role      | Who                             | Does                                                        |
+| --------- | ------------------------------- | ----------------------------------------------------------- |
+| `ADMIN` | depot officer                   | inventory, stock-in/adjust, logs + CSV/Excel export, users  |
+| `GATE`  | gate security                   | register an arriving vehicle + requirement lines, check out |
+| `SHED`  | storekeeper, one login per shed | own incoming queue, confirm loaded qty, own stock           |
 
 1. The gate registers a vehicle with item lines.
 2. Each line routes to the shed holding the item, and only that shed is alerted.
@@ -21,11 +22,10 @@ A vehicle can need two sheds; each confirms its own lines. Short stock is a **wa
 Stack: Next.js 16 PWA · Express 5 + Prisma 6 + MySQL 8.4 · Socket.IO hints · JWT — see `@docs/01-architecture.md`.
 
 ## Quickstart (local)
+
 Node 20+ (developed on 22), npm and Docker. Put the project Node on PATH first:
 
 ```bash
-export PATH=/home/prince/.nvm/versions/node/v22.23.2/bin:$PATH
-
 docker compose up -d mysql          # 1. MySQL 8.4 on :3306 — db rat, user rat / rat
 cp server/.env.example server/.env  # 2. env; set JWT_SECRET to 32+ random chars
 cp client/.env.example client/.env.local
@@ -39,12 +39,14 @@ cd ../client && npm run dev         # 6. web app on :3000
 Env vars, test DB, seed logins and production deploy: `@docs/04-setup-and-deploy.md`.
 
 ## Demo logins
+
 Four seeded accounts: `admin`, `gate`, `sheda` (SHED-A), `shedb` (SHED-B). Dev passwords and
 `SEED_*_PASSWORD` overrides: `@docs/04-setup-and-deploy.md` §8.
 
 ## Layout
+
 ```text
-rit/
+rat/
   index.md · agents.md    topic → file:line map · working instructions
   server/ · client/       Express API + Socket.IO · Next.js 16 PWA
   docker-compose.yml      local stack;  .prod.yml = self-contained demo stack

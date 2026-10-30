@@ -5,6 +5,7 @@
 Project-wide rules are in `@../agents.md`; this file is server-specific.
 
 ## Shape
+
 `src/index.ts` boots (`assertProductionEnv()` → `createApp()` → HTTP + `attachSocket()`); `src/app.ts`
 wires middleware, `/health` and the routers; `src/config/env.ts` owns env.
 Per module: `<name>.routes.ts` (auth + `requireRole` + validate) → `.controller.ts` (validated input in,
@@ -12,6 +13,7 @@ response out) → `.service.ts` (logic + `db.$transaction`, the only place Prism
 `src/validators/`, helpers in `src/utils/`; register routers in `src/app.ts`.
 
 ## Non-negotiables
+
 - `ok` / `okPaginated` / `fail` from `src/utils/responses.ts`; throw `ApiError(code, message, status)` with a stable SCREAMING_SNAKE code.
 - **Ledger invariant:** no `item.currentStock` write without its `stockLedger` row in the same
   `$transaction`; use `src/utils/rowLocks.ts` (visit → line → item order) for stock writes.
@@ -20,8 +22,8 @@ response out) → `.service.ts` (logic + `db.$transaction`, the only place Prism
   re-checked per request (`403 ACCOUNT_DISABLED`). No secrets or tokens in logs.
 
 ## Commands
+
 ```bash
-export PATH=/home/prince/.nvm/versions/node/v22.23.2/bin:$PATH
 npm run dev          # tsx watch, :5000
 npm run typecheck    # tsc --noEmit — covers src, tests, prisma/seed.ts
 npm run lint         # biome check (npm run format to write)

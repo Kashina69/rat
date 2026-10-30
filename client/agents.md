@@ -26,7 +26,6 @@ Next 16.4.3 (App Router, React 19, React Compiler): for routing, caching, `manif
 
 ## Commands
 ```bash
-export PATH=/home/prince/.nvm/versions/node/v22.23.2/bin:$PATH
 npm run dev           # next dev, :3000
 npm run typecheck     # tsc --noEmit
 npm run lint          # biome check (npm run format to write)

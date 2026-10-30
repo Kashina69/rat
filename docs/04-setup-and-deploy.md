@@ -11,12 +11,11 @@ content and reset behaviour: @docs/05-demo-and-seed.md. Tests: @docs/06-testing.
   lockfile is authoritative. Docker Engine + Compose v2 (`docker compose`, not `docker-compose`).
 - **MySQL 8.4 from Docker only** — do not install MySQL locally. Ports 3000, 5000 and 3306 free.
 - No Redis, no PostgreSQL, no broker: Socket.IO is in-process and the POC targets one API instance.
-- Commands assume `export PATH=/home/prince/.nvm/versions/node/v22.23.2/bin:$PATH`.
 
 ## 2. Local setup
 
 ```bash
-cd /home/prince/code/office/projects/rit
+cd /projects/rat
 docker compose up -d mysql && docker compose ps     # wait for STATUS = healthy
 cd server && cp .env.example .env                   # then edit
 npm ci && npx prisma generate && npx prisma migrate deploy && npm run db:seed
