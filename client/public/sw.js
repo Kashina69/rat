@@ -1,5 +1,5 @@
-const SHELL_CACHE = "dms-shell-v2";
-const STATIC_CACHE = "dms-static-v2";
+const SHELL_CACHE = "rat-shell-v2";
+const STATIC_CACHE = "rat-static-v2";
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {
@@ -20,7 +20,7 @@ self.addEventListener("activate", (event) => {
                     keys
                         .filter(
                             (key) =>
-                                key.startsWith("dms-") &&
+                                key.startsWith("rat-") &&
                                 key !== SHELL_CACHE &&
                                 key !== STATIC_CACHE,
                         )
