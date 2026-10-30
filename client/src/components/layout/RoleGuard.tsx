@@ -39,7 +39,7 @@ export function RoleGuard({
     if (!allow.includes(user.role)) {
         return (
             <main className="flex min-h-full items-center justify-center p-6">
-                <p className="text-lg text-ink/80">
+                <p className="text-base text-muted-foreground">
                     This area is for{" "}
                     {allow.map((r) => ROLE_LABEL[r]).join(", ")} users.
                 </p>

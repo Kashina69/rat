@@ -11,7 +11,7 @@ export function InstallButton() {
     if (isIOS && !canInstall) {
         return (
             <span
-                className="hidden items-center gap-1 text-xs text-muted sm:inline-flex"
+                className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex"
                 title="On iPhone/iPad: Share → Add to Home Screen"
             >
                 <Share className="size-4" aria-hidden />

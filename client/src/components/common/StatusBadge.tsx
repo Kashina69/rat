@@ -27,20 +27,35 @@ const DISPLAY_VARIANT: Record<LineDisplay, BadgeProps["variant"]> = {
     CANCELLED: "destructive",
 };
 
+const DISPLAY_LABEL: Record<LineDisplay, string> = {
+    PENDING: "Pending",
+    FULL: "Full",
+    SHORT: "Short",
+    CANCELLED: "Cancelled",
+};
+
 export function StatusBadge({ status }: { status: VisitStatus }) {
     return (
-        <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
+        <Badge variant={STATUS_VARIANT[status]}>
+            <span aria-hidden className="size-1.5 rounded-full bg-current" />
+            {STATUS_LABEL[status]}
+        </Badge>
     );
 }
 
 export function LineBadge({ display }: { display: LineDisplay }) {
-    return <Badge variant={DISPLAY_VARIANT[display]}>{display}</Badge>;
+    return (
+        <Badge variant={DISPLAY_VARIANT[display]}>
+            <span aria-hidden className="size-1.5 rounded-full bg-current" />
+            {DISPLAY_LABEL[display]}
+        </Badge>
+    );
 }
 
 export function StaleLabel({ when }: { when: number | null }) {
     if (!when) return null;
     return (
-        <span className="text-sm text-muted">
+        <span className="text-[13px] tabular-nums text-muted-foreground">
             Stale · synced {new Date(when).toLocaleTimeString()}
         </span>
     );

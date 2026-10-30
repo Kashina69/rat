@@ -99,10 +99,10 @@ export function UpdatePrompt() {
 
     return (
         <output
-            className="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-lg flex-wrap items-center gap-3 rounded-xl border border-amber-700 bg-amber-950 p-4 text-amber-100 shadow-xl"
+            className="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-lg flex-wrap items-center gap-3 rounded-[14px] border border-border bg-card p-4 text-foreground shadow-md"
             style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         >
-            <p className="min-w-48 flex-1 text-base">
+            <p className="min-w-48 flex-1 text-sm text-muted-foreground">
                 A new version is ready. It will apply when you reload — never
                 during a form or stock change.
             </p>

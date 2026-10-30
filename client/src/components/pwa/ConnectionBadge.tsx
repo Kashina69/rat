@@ -21,13 +21,19 @@ export function ConnectionBadge() {
             ? "success"
             : state === "degraded"
               ? "warning"
-              : "destructive";
+              : "default";
     const label =
         state === "online"
             ? "Live"
             : state === "degraded"
-              ? "Degraded"
+              ? "Syncing"
               : "Offline";
+    const dot =
+        state === "online"
+            ? "bg-brand-600"
+            : state === "degraded"
+              ? "bg-amber-500"
+              : "bg-muted-foreground";
 
     const syncTime = mounted ? (lastSyncAt ?? lastCheckedAt) : null;
     const syncLabel = syncTime
@@ -35,16 +41,15 @@ export function ConnectionBadge() {
         : "";
 
     return (
-        <Badge variant={variant} aria-live="polite" title={syncLabel || label}>
+        <Badge
+            variant={variant}
+            aria-live="polite"
+            title={syncLabel || label}
+            className="tabular-nums"
+        >
             <span
                 aria-hidden
-                className={`mr-1.5 inline-block size-2.5 rounded-full ${
-                    state === "online"
-                        ? "bg-emerald-400"
-                        : state === "degraded"
-                          ? "bg-amber-400"
-                          : "bg-red-400"
-                }`}
+                className={`inline-block size-2 rounded-full ${dot}`}
             />
             {label}
             {state !== "online" && syncTime
