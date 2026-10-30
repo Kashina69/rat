@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     cacheComponents: true,
     partialPrefetching: true,
     reactCompiler: true,
+    allowedDevOrigins: ["192.168.0.247"],
     async headers() {
         return [
             {
