@@ -44,6 +44,8 @@ export function VehicleForm() {
     });
 
     const items = itemsQuery.data ?? [];
+    const itemsLoading = itemsQuery.isPending;
+    const itemsFailed = itemsQuery.isError;
 
     return (
         <form
@@ -146,10 +148,17 @@ export function VehicleForm() {
                             <select
                                 {...register(`lines.${index}.itemId`)}
                                 id={`line-item-${index}`}
+                                disabled={itemsLoading}
                                 className="min-h-[48px] w-full rounded-lg border border-line-strong bg-surface px-3 text-base text-ink"
                             >
                                 <option value={0} disabled>
-                                    Select item
+                                    {itemsLoading
+                                        ? "Loading items…"
+                                        : itemsFailed
+                                          ? "Item list failed — retry after reconnect"
+                                          : items.length === 0
+                                            ? "No items available"
+                                            : "Select item"}
                                 </option>
                                 {items.map((item) => (
                                     <option key={item.id} value={item.id}>

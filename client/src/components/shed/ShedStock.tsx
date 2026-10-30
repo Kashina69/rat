@@ -14,7 +14,14 @@ export function ShedStock({ shedCode }: { shedCode: string | null }) {
     const { connection, lastSyncAt } = useSocket();
     const stale = connection !== "connected";
 
-    if (!shedCode) return null;
+    if (!shedCode) {
+        return (
+            <EmptyState
+                title="No shed assigned"
+                hint="Your account is not linked to a shed yet."
+            />
+        );
+    }
     if (itemsQuery.isPending)
         return <LoadingState label="Loading shed stock…" />;
     if (itemsQuery.isError) {

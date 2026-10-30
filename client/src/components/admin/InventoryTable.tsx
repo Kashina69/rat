@@ -62,6 +62,11 @@ export function InventoryTable() {
                         </option>
                     ))}
                 </select>
+                {shedsQuery.isError && (
+                    <span className="text-sm text-amber-300">
+                        Shed filter unavailable — showing all sheds.
+                    </span>
+                )}
                 <Button
                     type="button"
                     className="ml-auto"

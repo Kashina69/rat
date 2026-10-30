@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { toast } from "sonner";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useAuth } from "@/providers/auth-provider";
 import { roleHome } from "@/types/api";
@@ -24,6 +25,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     const handleLogout = () => {
         logout();
+        toast.success("Signed out");
         router.replace("/login");
     };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ErrorState, LoadingState } from "@/components/common/States";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { IncomingQueue } from "@/components/shed/IncomingQueue";
 import { ShedStock } from "@/components/shed/ShedStock";
@@ -53,6 +54,15 @@ export default function ShedPage() {
                                 First
                             </Button>
                         </span>
+                        {shedsQuery.isPending && (
+                            <LoadingState label="Loading sheds…" />
+                        )}
+                        {shedsQuery.isError && (
+                            <ErrorState
+                                message="Could not load shed list."
+                                onRetry={() => void shedsQuery.refetch()}
+                            />
+                        )}
                     </label>
                 )}
                 <IncomingQueue shedCode={shedCode} />

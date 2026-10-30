@@ -181,6 +181,11 @@ export function LogsTable() {
                     />
                 </label>
             </div>
+            {(shedsQuery.isError || itemsQuery.isError) && (
+                <p className="text-sm text-amber-300">
+                    Filter lists unavailable — type to filter instead.
+                </p>
+            )}
 
             {logsQuery.isPending ? (
                 <LoadingState label="Loading logs…" />
