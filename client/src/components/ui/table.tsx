@@ -13,10 +13,13 @@ export const Table = forwardRef<
     HTMLTableElement,
     TableHTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-    <div className="w-full overflow-x-auto rounded-lg border border-line">
+    <div className="w-full overflow-x-auto rounded-[14px] border border-border bg-card">
         <table
             ref={ref}
-            className={cn("w-full text-left text-base", className)}
+            className={cn(
+                "w-full border-collapse text-left text-base tabular-nums",
+                className,
+            )}
             {...props}
         />
     </div>
@@ -28,7 +31,12 @@ export function TableHeader({
     className,
     ...props
 }: HTMLAttributes<HTMLTableSectionElement>) {
-    return <thead className={cn("bg-surface-raised", className)} {...props} />;
+    return (
+        <thead
+            className={cn("bg-subtle text-muted-foreground", className)}
+            {...props}
+        />
+    );
 }
 
 export function TableBody({
@@ -44,7 +52,10 @@ export function TableRow({
 }: HTMLAttributes<HTMLTableRowElement>) {
     return (
         <tr
-            className={cn("border-t border-line first:border-0", className)}
+            className={cn(
+                "h-12 border-t border-border transition-colors duration-150 first:border-0 hover:bg-subtle/60",
+                className,
+            )}
             {...props}
         />
     );
@@ -57,7 +68,7 @@ export function TableHead({
     return (
         <th
             className={cn(
-                "px-4 py-3 text-sm font-semibold uppercase tracking-wide text-muted",
+                "h-11 px-4 text-[13px] font-semibold text-muted-foreground",
                 className,
             )}
             {...props}
@@ -69,7 +80,5 @@ export function TableCell({
     className,
     ...props
 }: TdHTMLAttributes<HTMLTableCellElement>) {
-    return (
-        <td className={cn("min-h-[48px] px-4 py-3", className)} {...props} />
-    );
+    return <td className={cn("h-12 px-4 py-3", className)} {...props} />;
 }

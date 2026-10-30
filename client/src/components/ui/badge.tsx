@@ -5,15 +5,16 @@ import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-    "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold",
+    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold leading-5",
     {
         variants: {
             variant: {
-                default: "border-line-strong bg-surface-overlay text-ink",
-                success: "border-emerald-700 bg-emerald-950 text-emerald-300",
-                warning: "border-amber-700 bg-amber-950 text-amber-300",
-                destructive: "border-red-700 bg-red-950 text-red-300",
-                info: "border-sky-700 bg-sky-950 text-sky-300",
+                default: "bg-subtle-strong text-muted-foreground",
+                secondary: "bg-subtle-strong text-muted-foreground",
+                success: "bg-brand-50 text-brand-800",
+                warning: "bg-warning-surface text-warning",
+                destructive: "bg-danger-surface text-danger",
+                info: "bg-brand-100 text-brand-900",
             },
         },
         defaultVariants: { variant: "default" },
