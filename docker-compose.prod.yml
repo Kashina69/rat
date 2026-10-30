@@ -11,11 +11,11 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD required}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-dms}
-      MYSQL_USER: ${MYSQL_USER:-dms}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rat}
+      MYSQL_USER: ${MYSQL_USER:-rat}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD required}
     volumes:
-      - dms-mysql:/var/lib/mysql
+      - rat-mysql:/var/lib/mysql
     healthcheck:
       test:
         [
@@ -87,4 +87,4 @@ services:
       start_period: 30s
 
 volumes:
-  dms-mysql:
+  rat-mysql:

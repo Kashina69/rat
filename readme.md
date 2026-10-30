@@ -1,4 +1,4 @@
-# DMS Depot — Depot Management System (POC)
+# RAT — Realtime Ammo Tracking (POC)
 
 > Map: @index.md · Truth: @docs/decisions_made.md, @docs/project-status.md
 
@@ -26,7 +26,7 @@ Node 20+ (developed on 22), npm and Docker. Put the project Node on PATH first:
 ```bash
 export PATH=/home/prince/.nvm/versions/node/v22.23.2/bin:$PATH
 
-docker compose up -d mysql          # 1. MySQL 8.4 on :3306 — db dms, user dms / dms
+docker compose up -d mysql          # 1. MySQL 8.4 on :3306 — db rat, user rat / rat
 cp server/.env.example server/.env  # 2. env; set JWT_SECRET to 32+ random chars
 cp client/.env.example client/.env.local
 (cd server && npm install)          # 3. install

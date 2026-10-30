@@ -2,7 +2,7 @@
 
 > Map: @index.md · Truth: @docs/decisions_made.md, @docs/project-status.md
 
-Instructions for anyone (human or agent) changing the DMS POC. What the product is: `@readme.md`.
+Instructions for anyone (human or agent) changing the Realtime Ammo Tracking (RAT) POC. What the product is: `@readme.md`.
 
 ## Read order
 1. `@index.md` — topic → `file:line`. Start here instead of scanning the tree.
@@ -55,7 +55,7 @@ export PATH=/home/prince/.nvm/versions/node/v22.23.2/bin:$PATH
 | Dev | `cd server && npm run dev` (:5000) · `cd client && npm run dev` (:3000) |
 | Typecheck | `cd server && npm run typecheck` · `cd client && npm run typecheck` (both `tsc --noEmit`) |
 | Lint / format | `npm run lint` (Biome) · `npm run format` in the package you touched |
-| Tests | `cd server && TEST_DATABASE_URL="mysql://dms:dms@127.0.0.1:3306/dms_test" npm test` — see `@docs/06-testing.md` |
+| Tests | `cd server && TEST_DATABASE_URL="mysql://rat:rat@127.0.0.1:3306/rat_test" npm test` — see `@docs/06-testing.md` |
 | Build | `cd server && npm run build` (→ `dist/index.js`) · `cd client && npm run build` (standalone) |
 
 Run `typecheck` and `lint` in every package you touched; no long-lived servers or Docker builds unless asked.

@@ -1,4 +1,4 @@
-# Project Index — DMS POC
+# Project Index — RAT (Realtime Ammo Tracking) POC
 
 > Read this first. `@path:Lx` means file + 1-based line; open that line directly.
 > Rules: `@docs/decisions_made.md` · State: `@docs/project-status.md`.
@@ -19,7 +19,7 @@
 | Working instructions for agents | `@agents.md:L1` |
 | Server package rules | `@server/agents.md:L1` |
 | Client package rules | `@client/agents.md:L1` |
-| Original client brief | `@docs/DMS_POC_Concept_Document.docx.pdf` |
+| Original client brief | `@docs/RAT_POC_Concept_Document.docx.pdf` |
 
 ## Product and flow
 
@@ -70,7 +70,7 @@
 | Prerequisites and local install | `@docs/04-setup-and-deploy.md:L8` · `@docs/04-setup-and-deploy.md:L16` |
 | Server and client env vars | `@docs/04-setup-and-deploy.md:L31` · `@docs/04-setup-and-deploy.md:L46` |
 | DB migrate/seed/reset commands | `@docs/04-setup-and-deploy.md:L55` |
-| `dms_test` setup | `@docs/04-setup-and-deploy.md:L73` |
+| `rat_test` setup | `@docs/04-setup-and-deploy.md:L73` |
 | Run both apps | `@docs/04-setup-and-deploy.md:L86` |
 | Dev seed passwords | `@docs/04-setup-and-deploy.md:L105` |
 | Login, disable, lockout | `@docs/04-setup-and-deploy.md:L121` |
