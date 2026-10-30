@@ -2,8 +2,8 @@ import type { Server as HttpServer } from "node:http";
 import { Server } from "socket.io";
 import type { JwtPayload, RequestUser } from "../types/domain.js";
 import { verifyToken } from "../utils/jwt.js";
+import { isOriginAllowed } from "./cors.js";
 import { db } from "./db.js";
-import { env } from "./env.js";
 
 export const GATE_ROOM = "gate";
 export const ADMIN_ROOM = "admin";
@@ -43,7 +43,16 @@ export function emitToRooms(
 
 export function attachSocket(httpServer: HttpServer) {
     const server = new Server(httpServer, {
-        cors: { origin: env.corsOrigin },
+        cors: {
+            origin: (origin, callback) => {
+                if (isOriginAllowed(origin)) {
+                    callback(null, true);
+                    return;
+                }
+                callback(new Error(`Origin not allowed: ${origin}`));
+            },
+            methods: ["GET", "POST"],
+        },
     });
     io = server;
 

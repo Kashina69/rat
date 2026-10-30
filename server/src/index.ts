@@ -1,7 +1,9 @@
 import { createServer } from "node:http";
 import { createApp } from "./app.js";
+import { assertProductionEnv, env } from "./config/env.js";
 import { attachSocket } from "./config/socket.js";
-import { env } from "./env.js";
+
+assertProductionEnv();
 
 const app = createApp();
 const httpServer = createServer(app);

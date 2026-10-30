@@ -1,8 +1,9 @@
 import cors from "cors";
 import express, { type Request, type Response } from "express";
 import helmet from "helmet";
-import { env } from "./config/env.js";
+import { corsOptions } from "./config/cors.js";
 import { errorHandler, notFound } from "./middlewares/errorHandler.js";
+import { apiLimiter } from "./middlewares/limiters.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { dashboardRoutes } from "./modules/dashboard/dashboard.routes.js";
 import { itemsRoutes } from "./modules/items/items.routes.js";
@@ -17,9 +18,12 @@ export function createApp() {
     const app = express();
 
     app.disable("x-powered-by");
+    app.set("trust proxy", 1);
     app.use(helmet());
-    app.use(cors({ origin: env.corsOrigin }));
-    app.use(express.json());
+    app.use(cors(corsOptions));
+    app.use(express.json({ limit: "100kb" }));
+    app.use(express.urlencoded({ extended: false, limit: "100kb" }));
+    app.use("/api", apiLimiter);
 
     app.get("/health", (_req: Request, res: Response) => {
         res.json({ data: { status: "ok", uptime: process.uptime() } });
