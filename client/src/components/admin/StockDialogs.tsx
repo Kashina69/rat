@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogFooter,
+    DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAdjustStock, useStockIn } from "@/hooks/useItems";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { friendlyMessage } from "@/lib/errors";
@@ -50,18 +53,18 @@ export function StockInDialog({
 
     return (
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent>
-                <DialogTitle>Stock in · {item?.name}</DialogTitle>
-                <DialogDescription>
-                    Adds stock with an IN ledger entry. Qty must be greater than
-                    0.
-                </DialogDescription>
-                <div className="flex flex-col gap-3">
-                    <label
-                        htmlFor="stockin-qty"
-                        className="flex flex-col gap-1.5"
-                    >
-                        <span className="text-base font-semibold">Qty</span>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Stock in · {item?.name}</DialogTitle>
+                    <DialogDescription>
+                        Adds stock to {item?.shed.code ?? "shed"} with an IN
+                        ledger entry. Quantity must be greater than zero.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-4 py-2">
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="stockin-qty">Quantity</Label>
                         <Input
                             id="stockin-qty"
                             value={qty}
@@ -72,28 +75,29 @@ export function StockInDialog({
                             inputMode="numeric"
                             placeholder="e.g. 50"
                         />
-                    </label>
-                    <label
-                        htmlFor="stockin-reason"
-                        className="flex flex-col gap-1.5"
-                    >
-                        <span className="text-base font-semibold">
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="stockin-reason">
                             Reason (optional)
-                        </span>
+                        </Label>
                         <Input
                             id="stockin-reason"
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
-                            placeholder="Purchase / return…"
+                            placeholder="e.g. Purchase order #123, Supplier return"
                             maxLength={255}
                         />
-                    </label>
+                    </div>
+
                     {offline && (
-                        <output className="text-base text-red-300">
-                            You are offline. Saving needs a connection.
-                        </output>
+                        <Alert variant="warning">
+                            You are offline. Saving requires an active network
+                            connection.
+                        </Alert>
                     )}
                 </div>
+
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={onClose}>
                         Cancel
@@ -108,7 +112,7 @@ export function StockInDialog({
                                 !Number.isInteger(parsed) ||
                                 parsed <= 0
                             ) {
-                                toast.error("Qty must be greater than 0.");
+                                toast.error("Quantity must be greater than 0.");
                                 return;
                             }
                             try {
@@ -119,7 +123,9 @@ export function StockInDialog({
                                         reason: reason.trim() || undefined,
                                     },
                                 });
-                                toast.success(`Stocked in ${parsed}`);
+                                toast.success(
+                                    `Added ${parsed} ${item.unit} to stock`,
+                                );
                                 onClose();
                             } catch (error) {
                                 toast.error(friendlyMessage(error));
@@ -158,20 +164,23 @@ export function AdjustDialog({
 
     return (
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent>
-                <DialogTitle>Adjust · {item?.name}</DialogTitle>
-                <DialogDescription>
-                    Signed qty (can be negative). Reason is required. Stock can
-                    never go below zero.
-                </DialogDescription>
-                <div className="flex flex-col gap-3">
-                    <label
-                        htmlFor="adjust-qty"
-                        className="flex flex-col gap-1.5"
-                    >
-                        <span className="text-base font-semibold">
-                            Qty (signed)
-                        </span>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Adjust · {item?.name}</DialogTitle>
+                    <DialogDescription>
+                        Signed adjustment value (positive to add, negative to
+                        remove). Stock can never go below zero.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-4 py-2">
+                    <div className="flex flex-col gap-1.5">
+                        <Label
+                            htmlFor="adjust-qty"
+                            hint="Use a leading minus (e.g. -5) to decrement stock."
+                        >
+                            Quantity (signed)
+                        </Label>
                         <Input
                             id="adjust-qty"
                             value={qty}
@@ -182,29 +191,27 @@ export function AdjustDialog({
                             autoComplete="off"
                             placeholder="e.g. -5 or 10"
                         />
-                        <span className="text-sm text-muted">
-                            Use a leading minus to remove stock.
-                        </span>
-                    </label>
-                    <label
-                        htmlFor="adjust-reason"
-                        className="flex flex-col gap-1.5"
-                    >
-                        <span className="text-base font-semibold">Reason</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="adjust-reason">Reason</Label>
                         <Input
                             id="adjust-reason"
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
-                            placeholder="Damage / recount…"
+                            placeholder="e.g. Damage write-off, Physical recount"
                             maxLength={255}
                         />
-                    </label>
+                    </div>
+
                     {offline && (
-                        <output className="text-base text-red-300">
-                            You are offline. Saving needs a connection.
-                        </output>
+                        <Alert variant="warning">
+                            You are offline. Saving requires an active network
+                            connection.
+                        </Alert>
                     )}
                 </div>
+
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={onClose}>
                         Cancel
@@ -215,11 +222,11 @@ export function AdjustDialog({
                         onClick={async () => {
                             const parsed = parseSignedQty(qty);
                             if (!item || parsed === null) {
-                                toast.error("Qty must be a whole number.");
+                                toast.error("Quantity must be a whole number.");
                                 return;
                             }
                             if (parsed === 0) {
-                                toast.error("Qty cannot be 0.");
+                                toast.error("Quantity cannot be 0.");
                                 return;
                             }
                             if (!reason.trim()) {
@@ -234,14 +241,14 @@ export function AdjustDialog({
                                         reason: reason.trim(),
                                     },
                                 });
-                                toast.success("Stock adjusted");
+                                toast.success("Stock adjusted successfully");
                                 onClose();
                             } catch (error) {
                                 toast.error(friendlyMessage(error));
                             }
                         }}
                     >
-                        {adjust.isPending ? "Saving…" : "Adjust"}
+                        {adjust.isPending ? "Saving…" : "Adjust stock"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogFooter,
+    DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { useSheds } from "@/hooks/useItems";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useCreateUser, useUpdateUser } from "@/hooks/useUsers";
@@ -102,73 +106,75 @@ export function UserEditor({
 
     return (
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent>
-                <DialogTitle>
-                    {editing ? `Edit ${user?.name}` : "New user"}
-                </DialogTitle>
-                <DialogDescription>
-                    {editing
-                        ? "Change the name, role or shed. Username is fixed."
-                        : "Creates a login for the gate, a shed or another admin."}
-                </DialogDescription>
-                <div className="flex flex-col gap-3">
-                    <label
-                        htmlFor="user-name"
-                        className="flex flex-col gap-1.5"
-                    >
-                        <span className="text-base font-semibold">Name</span>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>
+                        {editing ? `Edit ${user?.name}` : "New user"}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {editing
+                            ? "Update name, system role, or assigned shed. Username cannot be modified."
+                            : "Creates login credentials for gate personnel, shed operators, or administrators."}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-4 py-2">
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="user-name">Full name</Label>
                         <Input
                             id="user-name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Full name"
+                            placeholder="e.g. Ramesh Kumar"
                             autoComplete="off"
                         />
-                    </label>
-                    <label
-                        htmlFor="user-username"
-                        className="flex flex-col gap-1.5"
-                    >
-                        <span className="text-base font-semibold">
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Label
+                            htmlFor="user-username"
+                            hint={
+                                editing
+                                    ? "Username is permanently bound to this account."
+                                    : undefined
+                            }
+                        >
                             Username
-                        </span>
+                        </Label>
                         <Input
                             id="user-username"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            placeholder="login name"
+                            placeholder="e.g. ramesh.k"
                             autoComplete="off"
                             autoCapitalize="none"
                             disabled={editing}
                         />
-                    </label>
+                    </div>
+
                     {!editing && (
-                        <label
-                            htmlFor="user-password"
-                            className="flex flex-col gap-1.5"
-                        >
-                            <span className="text-base font-semibold">
+                        <div className="flex flex-col gap-1.5">
+                            <Label
+                                htmlFor="user-password"
+                                hint="Minimum 8 characters."
+                            >
                                 Password
-                            </span>
+                            </Label>
                             <Input
                                 id="user-password"
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                placeholder="At least 8 characters"
+                                placeholder="••••••••"
                                 autoComplete="new-password"
                             />
-                        </label>
+                        </div>
                     )}
+
                     <div className="grid gap-3 sm:grid-cols-2">
-                        <label
-                            htmlFor="user-role"
-                            className="flex flex-col gap-1.5"
-                        >
-                            <span className="text-base font-semibold">
-                                Role
-                            </span>
-                            <select
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="user-role">Role</Label>
+                            <Select
                                 id="user-role"
                                 value={role}
                                 onChange={(e) => {
@@ -176,28 +182,22 @@ export function UserEditor({
                                     setRole(next);
                                     if (next !== "SHED") setShedId("");
                                 }}
-                                className="min-h-[44px] rounded-lg border border-line-strong bg-surface px-3 text-base"
                             >
                                 {ROLES.map((option) => (
                                     <option key={option} value={option}>
                                         {option}
                                     </option>
                                 ))}
-                            </select>
-                        </label>
+                            </Select>
+                        </div>
+
                         {role === "SHED" && (
-                            <label
-                                htmlFor="user-shed"
-                                className="flex flex-col gap-1.5"
-                            >
-                                <span className="text-base font-semibold">
-                                    Shed
-                                </span>
-                                <select
+                            <div className="flex flex-col gap-1.5">
+                                <Label htmlFor="user-shed">Assigned shed</Label>
+                                <Select
                                     id="user-shed"
                                     value={shedId}
                                     onChange={(e) => setShedId(e.target.value)}
-                                    className="min-h-[44px] rounded-lg border border-line-strong bg-surface px-3 text-base"
                                 >
                                     <option value="" disabled>
                                         Select shed
@@ -207,26 +207,27 @@ export function UserEditor({
                                             {shed.code} · {shed.name}
                                         </option>
                                     ))}
-                                </select>
-                                {shedsQuery.isError && (
-                                    <span className="text-sm text-amber-300">
-                                        Could not load sheds.
-                                    </span>
-                                )}
-                            </label>
+                                </Select>
+                            </div>
                         )}
                     </div>
-                    {error && (
-                        <span role="alert" className="text-base text-red-400">
-                            {error}
+
+                    {shedsQuery.isError && role === "SHED" && (
+                        <span className="text-xs text-warning">
+                            Could not load sheds list.
                         </span>
                     )}
+
+                    {error && <Alert variant="danger">{error}</Alert>}
+
                     {offline && (
-                        <output className="text-base text-red-300">
-                            You are offline. Saving needs a connection.
-                        </output>
+                        <Alert variant="warning">
+                            You are offline. Saving requires an active network
+                            connection.
+                        </Alert>
                     )}
                 </div>
+
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={onClose}>
                         Cancel

@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogFooter,
+    DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { useCreateItem, useSheds, useUpdateItem } from "@/hooks/useItems";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { friendlyMessage } from "@/lib/errors";
@@ -109,73 +113,62 @@ export function ItemEditor({
 
     return (
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent>
-                <DialogTitle>
-                    {editing ? `Edit ${item?.name}` : "New item"}
-                </DialogTitle>
-                <DialogDescription>
-                    {editing
-                        ? "Stock is managed via stock-in / adjust, not here."
-                        : "Creates the item with an opening ledger entry."}
-                </DialogDescription>
-                <div className="flex flex-col gap-3">
-                    <label
-                        htmlFor="item-name"
-                        className="flex flex-col gap-1.5"
-                    >
-                        <span className="text-base font-semibold">Name</span>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>
+                        {editing ? `Edit ${item?.name}` : "New item"}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {editing
+                            ? "Stock quantities are managed via Stock In and Adjust, not here."
+                            : "Creates the item with an initial opening ledger entry."}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-4 py-2">
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="item-name">Name</Label>
                         <Input
                             id="item-name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Item name"
+                            placeholder="e.g. UltraTech Cement 50kg"
                         />
-                    </label>
-                    <label
-                        htmlFor="item-category"
-                        className="flex flex-col gap-1.5"
-                    >
-                        <span className="text-base font-semibold">
-                            Category
-                        </span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="item-category">Category</Label>
                         <Input
                             id="item-category"
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
-                            placeholder="Category"
+                            placeholder="e.g. Cement, Steel, Aggregate"
                         />
-                    </label>
+                    </div>
+
                     {!editing && (
                         <>
-                            <label
-                                htmlFor="item-unit"
-                                className="flex flex-col gap-1.5"
-                            >
-                                <span className="text-base font-semibold">
-                                    Unit
-                                </span>
+                            <div className="flex flex-col gap-1.5">
+                                <Label htmlFor="item-unit">
+                                    Unit of measure
+                                </Label>
                                 <Input
                                     id="item-unit"
                                     value={unit}
                                     onChange={(e) => setUnit(e.target.value)}
-                                    placeholder="bag / pcs / kg"
+                                    placeholder="e.g. bags, kg, pcs, tonnes"
                                 />
-                            </label>
+                            </div>
+
                             <div className="grid gap-3 sm:grid-cols-2">
-                                <label
-                                    htmlFor="item-shed"
-                                    className="flex flex-col gap-1.5"
-                                >
-                                    <span className="text-base font-semibold">
-                                        Shed
-                                    </span>
-                                    <select
+                                <div className="flex flex-col gap-1.5">
+                                    <Label htmlFor="item-shed">Shed</Label>
+                                    <Select
                                         id="item-shed"
                                         value={shedId}
                                         onChange={(e) =>
                                             setShedId(e.target.value)
                                         }
-                                        className="min-h-[48px] rounded-lg border border-line-strong bg-surface px-3 text-base"
                                     >
                                         <option value="" disabled>
                                             Select shed
@@ -188,15 +181,13 @@ export function ItemEditor({
                                                 {shed.code} · {shed.name}
                                             </option>
                                         ))}
-                                    </select>
-                                </label>
-                                <label
-                                    htmlFor="item-opening"
-                                    className="flex flex-col gap-1.5"
-                                >
-                                    <span className="text-base font-semibold">
+                                    </Select>
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <Label htmlFor="item-opening">
                                         Opening stock
-                                    </span>
+                                    </Label>
                                     <Input
                                         id="item-opening"
                                         value={opening}
@@ -208,17 +199,13 @@ export function ItemEditor({
                                         step={1}
                                         inputMode="numeric"
                                     />
-                                </label>
+                                </div>
                             </div>
                         </>
                     )}
-                    <label
-                        htmlFor="item-reorder"
-                        className="flex flex-col gap-1.5"
-                    >
-                        <span className="text-base font-semibold">
-                            Reorder level
-                        </span>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="item-reorder">Reorder level</Label>
                         <Input
                             id="item-reorder"
                             value={reorder}
@@ -228,18 +215,18 @@ export function ItemEditor({
                             step={1}
                             inputMode="numeric"
                         />
-                    </label>
-                    {error && (
-                        <span role="alert" className="text-base text-red-400">
-                            {error}
-                        </span>
-                    )}
+                    </div>
+
+                    {error && <Alert variant="danger">{error}</Alert>}
+
                     {offline && (
-                        <output className="text-base text-red-300">
-                            You are offline. Saving needs a connection.
-                        </output>
+                        <Alert variant="warning">
+                            You are offline. Saving requires an active network
+                            connection.
+                        </Alert>
                     )}
                 </div>
+
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={onClose}>
                         Cancel

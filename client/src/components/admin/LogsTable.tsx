@@ -1,5 +1,6 @@
 "use client";
 
+import { Download, FileSpreadsheet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -9,7 +10,10 @@ import {
 } from "@/components/common/States";
 import { LineBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
     Table,
     TableBody,
@@ -75,7 +79,7 @@ export function LogsTable() {
         setExporting("csv");
         try {
             await downloadLogsCsv(exportFilters);
-            toast.success("Logs exported");
+            toast.success("Logs exported as CSV");
         } catch (error) {
             toast.error(friendlyMessage(error));
         } finally {
@@ -87,7 +91,7 @@ export function LogsTable() {
         setExporting("xlsx");
         try {
             await downloadLogsXlsx(exportFilters);
-            toast.success("Excel export downloaded");
+            toast.success("Logs exported as Excel");
         } catch (error) {
             toast.error(friendlyMessage(error));
         } finally {
@@ -96,130 +100,160 @@ export function LogsTable() {
     }
 
     return (
-        <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-bold">Ledger logs</h2>
-                <span className="ml-auto flex flex-wrap gap-2">
+        <div className="flex flex-col gap-5">
+            {/* Action header bar */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 className="text-xl font-bold tracking-tight text-foreground">
+                        Audit & Ledger Logs
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                        Comprehensive log of vehicle arrivals, loading actions,
+                        and stock movements
+                    </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                     <Button
                         type="button"
                         variant="outline"
                         disabled={exporting !== null}
                         onClick={() => void onExportCsv()}
+                        className="gap-2"
                     >
-                        {exporting === "csv" ? "Exporting…" : "Export CSV"}
+                        <Download className="size-4" />
+                        <span>
+                            {exporting === "csv" ? "Exporting…" : "Export CSV"}
+                        </span>
                     </Button>
                     <Button
                         type="button"
                         variant="outline"
                         disabled={exporting !== null}
                         onClick={() => void onExportXlsx()}
+                        className="gap-2"
                     >
-                        {exporting === "xlsx" ? "Exporting…" : "Export Excel"}
+                        <FileSpreadsheet className="size-4" />
+                        <span>
+                            {exporting === "xlsx"
+                                ? "Exporting…"
+                                : "Export Excel"}
+                        </span>
                     </Button>
-                </span>
+                </div>
             </div>
-            <div className="grid gap-2 rounded-xl border border-line bg-surface-raised p-3 sm:grid-cols-3">
-                <label htmlFor="logs-vehicle" className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold">Vehicle</span>
-                    <Input
-                        id="logs-vehicle"
-                        value={vehicle}
-                        onChange={(e) => {
-                            setVehicle(e.target.value);
-                            resetPage();
-                        }}
-                        placeholder="Search vehicle"
-                    />
-                </label>
-                <label htmlFor="logs-item" className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold">Item</span>
-                    <select
-                        id="logs-item"
-                        value={itemId}
-                        onChange={(e) => {
-                            setItemId(e.target.value);
-                            resetPage();
-                        }}
-                        className="min-h-[48px] rounded-lg border border-line-strong bg-surface px-3 text-base"
-                    >
-                        <option value="">All items</option>
-                        {(itemsQuery.data ?? []).map((row) => (
-                            <option key={row.id} value={row.id}>
-                                {row.name} · {row.shed.code}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <label htmlFor="logs-shed" className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold">Shed</span>
-                    <select
-                        id="logs-shed"
-                        value={shed}
-                        onChange={(e) => {
-                            setShed(e.target.value);
-                            resetPage();
-                        }}
-                        className="min-h-[48px] rounded-lg border border-line-strong bg-surface px-3 text-base"
-                    >
-                        <option value="">All sheds</option>
-                        {(shedsQuery.data ?? []).map((row) => (
-                            <option key={row.id} value={row.code}>
-                                {row.code}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <label htmlFor="logs-status" className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold">Status</span>
-                    <select
-                        id="logs-status"
-                        value={status}
-                        onChange={(e) => {
-                            setStatus(e.target.value as "" | LogStatus);
-                            resetPage();
-                        }}
-                        className="min-h-[48px] rounded-lg border border-line-strong bg-surface px-3 text-base"
-                    >
-                        {STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                                {s === "" ? "All statuses" : s}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <label htmlFor="logs-from" className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold">From</span>
-                    <Input
-                        id="logs-from"
-                        type="date"
-                        value={from}
-                        onChange={(e) => {
-                            setFrom(e.target.value);
-                            resetPage();
-                        }}
-                    />
-                </label>
-                <label htmlFor="logs-to" className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold">To</span>
-                    <Input
-                        id="logs-to"
-                        type="date"
-                        value={to}
-                        onChange={(e) => {
-                            setTo(e.target.value);
-                            resetPage();
-                        }}
-                    />
-                </label>
-            </div>
+
+            {/* Filter controls */}
+            <Card className="bg-card">
+                <CardContent className="p-4 sm:p-5">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="logs-vehicle">Vehicle number</Label>
+                            <Input
+                                id="logs-vehicle"
+                                value={vehicle}
+                                onChange={(e) => {
+                                    setVehicle(e.target.value);
+                                    resetPage();
+                                }}
+                                placeholder="Search by vehicle registration"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="logs-item">Item</Label>
+                            <Select
+                                id="logs-item"
+                                value={itemId}
+                                onChange={(e) => {
+                                    setItemId(e.target.value);
+                                    resetPage();
+                                }}
+                            >
+                                <option value="">All items</option>
+                                {(itemsQuery.data ?? []).map((row) => (
+                                    <option key={row.id} value={row.id}>
+                                        {row.name} ({row.shed.code})
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="logs-shed">Shed</Label>
+                            <Select
+                                id="logs-shed"
+                                value={shed}
+                                onChange={(e) => {
+                                    setShed(e.target.value);
+                                    resetPage();
+                                }}
+                            >
+                                <option value="">All sheds</option>
+                                {(shedsQuery.data ?? []).map((row) => (
+                                    <option key={row.id} value={row.code}>
+                                        Shed {row.code}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="logs-status">Status</Label>
+                            <Select
+                                id="logs-status"
+                                value={status}
+                                onChange={(e) => {
+                                    setStatus(e.target.value as "" | LogStatus);
+                                    resetPage();
+                                }}
+                            >
+                                {STATUSES.map((s) => (
+                                    <option key={s} value={s}>
+                                        {s === "" ? "All statuses" : s}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="logs-from">From date</Label>
+                            <Input
+                                id="logs-from"
+                                type="date"
+                                value={from}
+                                onChange={(e) => {
+                                    setFrom(e.target.value);
+                                    resetPage();
+                                }}
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="logs-to">To date</Label>
+                            <Input
+                                id="logs-to"
+                                type="date"
+                                value={to}
+                                onChange={(e) => {
+                                    setTo(e.target.value);
+                                    resetPage();
+                                }}
+                            />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             {(shedsQuery.isError || itemsQuery.isError) && (
-                <p className="text-sm text-amber-300">
-                    Filter lists unavailable — type to filter instead.
+                <p className="text-xs text-warning">
+                    Filter dropdown lists could not be loaded — type to filter
+                    instead.
                 </p>
             )}
 
+            {/* Table or States */}
             {logsQuery.isPending ? (
-                <LoadingState label="Loading logs…" />
+                <LoadingState label="Loading audit logs…" />
             ) : logsQuery.isError ? (
                 <ErrorState
                     message="Could not load logs."
@@ -229,74 +263,119 @@ export function LogsTable() {
                 <>
                     {logsQuery.data.rows.length === 0 ? (
                         <EmptyState
-                            title="No log rows on this page"
+                            title="No logs found"
                             hint={
                                 page > 1
-                                    ? "This page is empty — go back a page."
-                                    : "Adjust filters to find ledger activity."
+                                    ? "This page is empty. Navigate back to previous page."
+                                    : "Adjust search filters to view recorded ledger activity."
                             }
                         />
                     ) : (
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Vehicle</TableHead>
-                                    <TableHead>Shed / Item</TableHead>
-                                    <TableHead>Qty</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Arrival</TableHead>
+                                    <TableHead>Action</TableHead>
+                                    <TableHead>Entity</TableHead>
+                                    <TableHead>Actor</TableHead>
+                                    <TableHead>Timestamp</TableHead>
+                                    <TableHead>Details</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {logsQuery.data.rows.map((row) => (
                                     <TableRow key={row.lineId}>
                                         <TableCell>
-                                            <span className="font-semibold">
-                                                {row.vehicle}
-                                            </span>
-                                            <br />
-                                            <span className="text-sm text-muted">
-                                                {row.driver} · {row.party}
-                                            </span>
+                                            <div className="flex flex-col gap-1">
+                                                <LineBadge
+                                                    display={row.display}
+                                                />
+                                                <span className="text-xs text-muted-foreground">
+                                                    {row.visitStatus}
+                                                </span>
+                                            </div>
                                         </TableCell>
+
                                         <TableCell>
-                                            {row.shed} · {row.item.name}
-                                            <br />
-                                            <span className="text-sm text-muted">
-                                                {row.visitStatus}
-                                            </span>
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-foreground">
+                                                    {row.item.name}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    Shed {row.shed} ·{" "}
+                                                    {row.item.category}
+                                                </span>
+                                            </div>
                                         </TableCell>
+
                                         <TableCell>
-                                            req {row.requested}
-                                            {row.loaded !== null
-                                                ? ` / got ${row.loaded}`
-                                                : ""}
-                                            {row.shortfall !== null &&
-                                            row.shortfall > 0
-                                                ? ` (short ${row.shortfall})`
-                                                : ""}
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-medium text-foreground">
+                                                    Gate: {row.gateUser.name}
+                                                </span>
+                                                {row.confirmedBy ? (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        Loaded by:{" "}
+                                                        {row.confirmedBy.name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        Awaiting shed
+                                                    </span>
+                                                )}
+                                            </div>
                                         </TableCell>
+
                                         <TableCell>
-                                            <LineBadge display={row.display} />
+                                            <div className="flex flex-col tabular-nums">
+                                                <span className="text-sm text-foreground">
+                                                    {row.arrivalIST}
+                                                </span>
+                                                {row.confirmedAtIST && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        Confirmed:{" "}
+                                                        {row.confirmedAtIST}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </TableCell>
+
                                         <TableCell>
-                                            <span className="text-sm">
-                                                {row.arrivalIST}
-                                            </span>
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-foreground">
+                                                    {row.vehicle}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {row.driver} ({row.party})
+                                                </span>
+                                                <span className="mt-0.5 text-xs font-medium tabular-nums text-foreground">
+                                                    Req: {row.requested}{" "}
+                                                    {row.item.unit}
+                                                    {row.loaded !== null
+                                                        ? ` · Got: ${row.loaded}`
+                                                        : ""}
+                                                    {row.shortfall !== null &&
+                                                    row.shortfall > 0
+                                                        ? ` (Short: ${row.shortfall})`
+                                                        : ""}
+                                                </span>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
                     )}
+
+                    {/* Pagination */}
                     {logsQuery.data.pagination.totalItems > 0 && (
-                        <div className="flex items-center justify-between text-base">
-                            <span className="text-muted">
-                                Page {logsQuery.data.pagination.page} of{" "}
-                                {logsQuery.data.pagination.totalPages} ·{" "}
-                                {logsQuery.data.pagination.totalItems} rows
+                        <div className="flex flex-col items-center justify-between gap-3 text-sm sm:flex-row">
+                            <span className="text-muted-foreground tabular-nums">
+                                Showing page {logsQuery.data.pagination.page} of{" "}
+                                {logsQuery.data.pagination.totalPages} (
+                                {logsQuery.data.pagination.totalItems} total
+                                entries)
                             </span>
-                            <span className="flex gap-2">
+                            <div className="flex items-center gap-2">
                                 <Button
                                     type="button"
                                     size="sm"
@@ -304,7 +383,7 @@ export function LogsTable() {
                                     disabled={page <= 1}
                                     onClick={() => setPage((p) => p - 1)}
                                 >
-                                    Prev
+                                    Previous
                                 </Button>
                                 <Button
                                     type="button"
@@ -322,7 +401,7 @@ export function LogsTable() {
                                 >
                                     Next
                                 </Button>
-                            </span>
+                            </div>
                         </div>
                     )}
                 </>
