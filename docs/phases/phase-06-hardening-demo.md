@@ -33,9 +33,9 @@ Goal: secure public link, fresh DB → full demo passes.
 
 ## 5. Final acceptance
 
-- [ ] Fresh migrate + seed → scripted 3–5 vehicle demo passes, single + multi-shed
-- [ ] Cold PWA launch → documented session behavior, relogin works
-- [ ] Offline → blocked mutations, stale labels, reconnect refetch
-- [ ] SW update → prompt, no interrupted operation
-- [ ] CSV export matches screen filters, formula cells escaped
-- [ ] Tablet portrait/landscape, touch targets, keyboards verified
+- [x] Fresh migrate + seed → scripted 3–5 vehicle demo passes, single + multi-shed (`docs/demo-script.md`)
+- [x] Cold PWA launch → documented session behavior, relogin works (memory token; see demo-script)
+- [x] Offline → blocked mutations, stale labels, reconnect refetch
+- [x] SW update → prompt, no interrupted operation (`SKIP_WAITING` only on user tap)
+- [x] CSV export matches screen filters, formula cells escaped (`escapeCsvCell`, verified)
+- [ ] Tablet portrait/landscape, touch targets, keyboards verified (manual — see demo-script checklist)
