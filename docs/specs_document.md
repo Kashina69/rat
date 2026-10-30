@@ -1,5 +1,7 @@
 # DMS POC — Specs Document
 
+> **Historical — superseded by `docs/decisions_made.md` + `docs/project-status.md`. Do not implement from this file.**
+
 ## 1. What is this
 
 Depot Management System (POC) for an ammunition depot. It replaces phone calls and paper slips between gate, sheds, and office with three browser tablets that sync live.

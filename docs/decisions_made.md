@@ -1,31 +1,52 @@
-# Decisions Made
+# Decisions Made — DMS POC
 
-- Auth: JWT access-only, no refresh tokens
-- Passwords: bcrypt, 12 rounds
-- Token life: ~8h (one shift)
-- Token stored in memory (Context), not localStorage
-- Role + shedCode inside JWT payload
-- Auth guard: `auth` middleware + `requireRole()` fn
-- Shed users scoped to own shed only
-- Realtime: Socket.IO, no polling/SSE
-- Rooms: `shed:{code}`, `gate`, `admin`
-- Write DB first, then push socket event
-- Short stock: warn, don't block
-- Checkout: strict, blocked until all sheds confirm (409 if not)
-- Stock: never update without ledger row
-- Double-confirm blocked (409, no double deduct)
-- Seed: 2 sheds + ~10 items + admin/gate/shed users
-- Backend: Express 5 + TypeScript strict
-- DB: MySQL + Prisma, transactions for stock ops
-- Validation: zod on all inputs
-- Response shape: `{ data }` / `{ error: { code, message } }`
-- Security: helmet, CORS whitelist, login rate-limit
-- No classes/OOP, pure functions only
-- Pattern: route → controller → service → prisma
-- Files split by category, single-responsibility
-- Frontend: Next.js 16 + Tailwind + shadcn
-- Data fetching: TanStack Query for all server state
-- Client state: React Context (auth + socket)
-- Zustand: only if Context outgrows, not in POC
-- Lint/format: Biome, `tsc --noEmit` clean
-- Docs: `specs_document.md` + `implementation_plan.md` in `docs/`
+Status: **authoritative**. Last updated 2026-10-30.
+
+This file supersedes every earlier decision note, the previous one-line version of this file, and the status/field descriptions in `docs/specs_document.md` (kept only as history). Where code disagrees with this file, this file is the target and `docs/project-status.md` records the gap.
+
+## The product in one paragraph
+
+Depot Management System (DMS) POC for **one ammunition depot**. It replaces phone calls and paper slips between the gate, the sheds, and the office with three browser tablets that sync live. Roles: **ADMIN** (depot officer), **GATE** (security/clerk), **SHED** (storekeeper, one login per shed). One loop: gate registers a vehicle and item lines → each line routes to the shed holding that item and that shed is alerted → shed confirms the actual loaded quantity → stock and ledger update → gate checks out, only after every shed has finished. One vehicle may need items from two sheds.
+
+## Decision log
+
+| # | Decision | Choice | Why | Consequence |
+|---|---|---|---|---|
+| 1 | Product scope | DMS POC for one depot: role login, vehicle registration, requirement lines, shed routing/queue/confirm, automatic stock deduction + ledger, strict checkout, inventory create/edit/archive, stock-in, manual adjust, in/out logs with filters, CSV + Excel export, dashboard, installable tablet PWA, basic user management | Prove the gate→shed→gate loop in a real depot on cheap tablets, no ERP project | Everything else is out: offline mutation queue, refresh tokens/revocation, Redis/multi-instance, native app, self-signup, multi-depot, full ERP |
+| 2 | Database | **MySQL 8.4** + Prisma 6, run in Docker (`mysql:8.4`) | User decision 2026-10-30. This is a deliberate deviation from the original concept, which proposed **PostgreSQL**. Depot-side ops already know MySQL and it is what the demo host runs | No Postgres-only features (JSONB querying, advisory locks, `RETURNING`-style tricks relied on in Postgres). Row locking is done with `SELECT … FOR UPDATE` helpers in `server/src/utils/rowLocks.ts`. The concept's Postgres reasoning is void, not pending |
+| 3 | Authoritative statuses | Visit: `AWAITING_LOADING` → `PARTIALLY_LOADED` → `READY_FOR_CHECKOUT` → `CHECKED_OUT`, plus `CANCELLED` before checkout. Requirement line: `PENDING` → `LOADED`, plus `CANCELLED` | One vocabulary across DB, API, filters and screens; the concept's names were ambiguous about parked vs finished | These exact strings are the API contract and the DB enum. Old wording (Registered, Partly loaded, Loaded) is dead. Any screen, filter, or doc still using it is a bug |
+| 4 | Short stock at the gate | **Warn only.** Gate sees a warning when requesting more than recorded stock and can still save | The shed's shelf is the truth; the gate must not be blocked by stale records | Visit and lines are created anyway; the gate gets a toast "Saved with low stock …" (`client/src/components/gate/VehicleForm.tsx`). No 409, no clamp. The warning is informational, so it must never be turned into a validation error |
+| 5 | Stock at shed confirm | No on-hand stock block: recorded stock **may go negative**. Loaded quantity must be between 1 and the requested quantity. Double-confirm → `409 ALREADY_CONFIRMED` with no state change. Checkout stays strict | Partial or over-recorded stock happens; blocking the storekeeper strands the vehicle. Correctness is carried by the ledger, not by refusing the write | `item.currentStock` and `ledger.balanceAfter` can legitimately be negative — dashboards, exports and UI must display that instead of hiding or clamping it. Two writes on one line are impossible, so stock cannot be double-deducted. A vehicle cannot leave until every line is `LOADED` or `CANCELLED` |
+| 6 | Item editing | Name, category and reorder level editable at any time, including after stock history. Unit and shed are set at creation and never changed afterwards. Stock is never edited directly — only stock-in, manual adjust, and confirm. Archive (`isActive=false`) instead of hard delete when history exists | Renaming a shelf label or fixing a typo is routine; changing unit/shed would silently rewrite history; deleting would orphan ledger rows | `PUT /api/items/:id` accepts name, category, reorderLevel, isActive only. Stock changes always go through `POST /:id/stock-in`, `POST /:id/adjust`, or a line confirm, and each writes exactly one ledger row |
+| 7 | Users | Four seeded logins for the demo (`admin`, `gate`, `sheda`, `shedb`, all lowercase). Admin can create users, assign role + shed, disable/enable, and reset passwords. No self-signup | A depot has a handful of named staff; the POC must show provisioning without building an identity system | Built: `GET/POST /api/users`, `PATCH /api/users/:id`, `POST /api/users/:id/reset-password`, `User.isActive`, and the admin Users screen. The demo still starts from the four seeded accounts; passwords come from `SEED_*_PASSWORD` env vars, falling back to dev-only defaults locally. A disabled user gets the generic 401 on login and `403 ACCOUNT_DISABLED` on an existing token; an admin cannot disable their own account. Last-admin protection is **not** implemented |
+| 8 | Export | CSV **and** Excel (`.xlsx`), with the same filters as the log screen | Office staff want both; CSV for scripts, Excel for reports | Both are built. CSV: `GET /api/logs/export`, `text/csv` with BOM, formula-injection escaping in `server/src/utils/csv.ts`. Excel: `GET /api/logs/export.xlsx` via `exceljs` 4.4.0, plus an Export Excel button on the logs screen. The two formats share one query/filter path and must stay in step |
+| 9 | Auth and session | JWT access token only, ~8h life, bcrypt with 12 rounds, token held in memory in React context (never localStorage), no refresh token, no revocation list, role + shed code in the payload | One shift, tablets are shared and physically controlled; revocation infrastructure is out of POC scope | Refresh or cold PWA launch means relogin (accepted, documented in the demo script). Logout must clear both in-memory auth state **and** the TanStack Query cache, otherwise the next user on a shared tablet sees the previous user's cached data. A leaked token is valid until it expires |
+| 10 | Realtime | Socket.IO with rooms `shed:{code}`, `gate`, `admin`. Events are **invalidation hints only** — the client refetches over HTTP; the socket never carries state | Keeps one source of truth (REST + DB), survives missed events and reconnects, avoids client-side state merging | Write the DB first, then emit. Clients must refetch on reconnect/refocus rather than depend on every event arriving. A dead socket must degrade to stale-until-refetch, not to wrong data |
+| 11 | Logs and dashboard | In/out log filtered by vehicle, item, shed, line status, and `from`/`to` date range, paginated, exportable with the same filters. Dashboard shows vehicles inside, pending lines per shed, and low stock | That is what the office actually asks for at the counter | Log filters are the single source for both screen and export. Date filters mean **depot-local (IST) days**, not UTC instants, so `to=today` includes today. The dashboard's "low stock" list is derived from `currentStock <= reorderLevel`; a full current-stock list per shed was in the concept and is **not built** |
+| 12 | Deploy | Docker Compose: `mysql:8.4`, `api` (Express), `web` (Next standalone), a dev compose for local, and a **self-contained** `docker-compose.prod.yml` (its own three services, not an override of the dev file) for the public demo, HTTPS in front for PWA install | One repo, one command, reproducible demo host | The API refuses to boot in production without an explicit `JWT_SECRET` (≥32 chars) and a `CORS_ORIGIN` allowlist; seeding additionally requires all four `SEED_*_PASSWORD` values, but only when the seed is actually run. `NEXT_PUBLIC_*` values are baked at build time, so they are build args on `web`, not runtime env. The prod file publishes no MySQL port and gates `web` on `api` being healthy. The public demo is only real once a production build, a Docker build and a tablet install have actually been done — none has |
+| 13 | Demo | Seeded depot (2 sheds, ~10 items, 4 logins) plus a scripted 3–5 vehicle run including at least one multi-shed vehicle and one over-stock (warn-only) vehicle, driven from installed tablets | The demo is the acceptance test for the POC | Demo claims are only evidence when the run happened. Phase-06 acceptance boxes were flipped in a docs-only commit; the tablet/3–5 vehicle parts are unproven. `docs/demo-script.md` is the run sheet and now follows the warn-only rule — keep it in step with decisions 4 and 5 |
+| 14 | Quality | Express 5 + TypeScript strict, `route → controller → service → Prisma`, zod at every input boundary, response shape `{ data }` / `{ error: { code, message } }`, functional style (no classes, no OOP), single-responsibility files, append-only ledger with one row per stock change, shed scoping enforced **server-side**, Vitest + Supertest against a real MySQL `dms_test`, Biome + `tsc --noEmit` | Small POC, high blast radius on stock numbers: invariants and readability beat abstraction | Client-side role checks are UX only and never security. `SUM(ledger.delta) == item.currentStock` is the invariant every stock path must keep, checked by tests. `server/tests` is inside `tsconfig` include, so `typecheck` covers the tests; the client has a `typecheck` script; `truncateAll` refuses any database not named `*_test`. There is still no CI |
+| 15 | Documentation | `docs/decisions_made.md` + `docs/project-status.md` are the authoritative pair; `docs/specs_document.md` is historical; phase docs are plans/records, not current truth | Docs drifted badly (old status chain, unimplemented ledger fields, a referenced `implementation_plan.md` that never existed) | Behaviour changes must update this file or the status file in the same change. Nobody should implement from `specs_document.md` |
+
+## Where the code stands against these decisions
+
+Checked at the end of the 2026-10-30 pass. This time it is not a code read:
+`typecheck`, `lint` and `build` are clean in both packages and the MySQL suite
+passes 40/40. What is **still not proven** is Docker, device and demo — see the
+last three rows. All of it is **uncommitted working-tree change**. Full detail:
+`docs/project-status.md`.
+
+| Decision | State |
+|---|---|
+| 4 — short stock warn only | Implemented. Gate gets a "saved with low stock" warning and the visit is created |
+| 5 — no on-hand block at confirm, stock may go negative | Implemented. `confirmLine` keeps the `1..requested` bound and the double-confirm `409`, and has no insufficient-stock rejection |
+| 6 — items editable after history | Implemented. `PUT /api/items/:id` updates name/category/reorderLevel/isActive freely; unit and shed stay immutable; stock only moves through stock-in, adjust and confirm |
+| 11 — log dates as depot days | Implemented. `from`/`to` are treated as IST days (`istDayStartUtc` / `istDayEndUtc`), covered by `logs-date.test.ts` (5 tests) |
+| 7 — user management | **Built.** `User.isActive`, `GET/POST /api/users`, `PATCH /api/users/:id`, `POST /api/users/:id/reset-password`, admin Users screen. Disabled login → generic 401; disabled token → `403 ACCOUNT_DISABLED`; self-disable blocked. `users.test.ts` (8 tests). Last-admin protection is not implemented |
+| 8 — `.xlsx` export | **Built.** `GET /api/logs/export.xlsx` with `exceljs` 4.4.0, admin Export Excel button, `logs-export-xlsx.test.ts` (4 tests). CSV keeps its BOM and neutralises formula cells that start with whitespace/control characters (`csv.test.ts`, 7 tests) |
+| 11 — dashboard current-stock list | **Not built.** Dashboard reports vehicles inside, pending lines per shed and low stock only |
+| 9, 10 — session and realtime edges | Fixed for expiry: the server emits `session.expired`, the client ends the session (clears the query cache), toasts "Session expired. Sign in again." and does not reconnect with the stale token; transient connect errors still reconnect. No cross-shed socket integration test yet |
+| 12 — deploy | Configured and validated: `docker compose -f docker-compose.prod.yml config` passes with dummy secrets — self-contained stack, MySQL unpublished, api/web healthchecks, `web` after `api` healthy, both `NEXT_PUBLIC_*` as build args. **No image built, no stack started, no deployment** |
+| 13 — demo evidence | **Open.** The scripted 3–5 vehicle tablet run has not been performed; phase-06 acceptance boxes were flipped without evidence |
+| 14 — quality gates | Green: server typecheck (includes tests) / lint (74 files) / build (`dist/index.js`); client typecheck / lint (69 files) / Next build (`.next/standalone/server.js`); MySQL suite 12 files / 40 tests pass. No CI, both images still run as root |
+| 2 — MySQL + Prisma 6 | 1 squashed init migration (`20261029110447_init`) containing the full schema, `users.isActive` and `reason VARCHAR(255)`; `migrate status` clean |
