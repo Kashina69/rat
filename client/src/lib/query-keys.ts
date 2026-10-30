@@ -1,7 +1,7 @@
 import type { LogFilters } from "@/types/api";
 
 export const queryKeys = {
-    all: ["dms"],
+    all: ["rat"],
     visits: (status = "all") => [...queryKeys.all, "visits", status] as const,
     shedQueue: (code: string) =>
         [...queryKeys.all, "shed-queue", code] as const,

@@ -64,7 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                             <Warehouse aria-hidden className="size-5" />
                         </span>
                         <span className="text-[17px] font-bold tracking-tight text-foreground">
-                            DMS Depot
+                            Realtime Ammo Tracking (RAT)
                         </span>
                     </Link>
 

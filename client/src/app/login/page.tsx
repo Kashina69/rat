@@ -43,7 +43,7 @@ export default function LoginPage() {
                         <Warehouse aria-hidden className="size-5" />
                     </span>
                     <span className="text-[17px] font-bold tracking-tight text-foreground">
-                        DMS Depot
+                        Realtime Ammo Tracking (RAT)
                     </span>
                 </div>
 

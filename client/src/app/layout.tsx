@@ -17,16 +17,16 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
     title: {
-        default: "DMS Depot",
-        template: "%s · DMS Depot",
+        default: "RAT · Realtime Ammo Tracking",
+        template: "%s · Realtime Ammo Tracking",
     },
     description:
-        "Depot Management System — gate, shed, and office tablets syncing live.",
-    applicationName: "DMS Depot",
+        "Realtime Ammo Tracking (RAT) — gate, shed, and office tablets syncing live.",
+    applicationName: "Realtime Ammo Tracking (RAT)",
     appleWebApp: {
         capable: true,
         statusBarStyle: "default",
-        title: "DMS Depot",
+        title: "Realtime Ammo Tracking (RAT)",
     },
     icons: {
         icon: [

@@ -20,7 +20,7 @@ export default function Home() {
     return (
         <div className="flex min-h-[50vh] items-center justify-center">
             <p className="text-lg text-muted" aria-live="polite">
-                Loading DMS Depot…
+                Loading Realtime Ammo Tracking (RAT)…
             </p>
         </div>
     );

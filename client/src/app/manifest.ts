@@ -4,10 +4,10 @@ import { theme } from "@/lib/theme";
 export default function manifest(): MetadataRoute.Manifest {
     return {
         id: "/",
-        name: "DMS Depot",
-        short_name: "DMS",
+        name: "Realtime Ammo Tracking",
+        short_name: "RAT",
         description:
-            "Depot Management System — gate, shed, and office tablets syncing live.",
+            "Realtime Ammo Tracking (RAT) — gate, shed, and office tablets syncing live.",
         start_url: "/",
         scope: "/",
         display: "standalone",
