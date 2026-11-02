@@ -97,6 +97,30 @@
 | Decision log | `@docs/decisions_made.md:L13` |
 | Original spec and phase plans | git history only; do not implement from them |
 
+## Code Map (Direct Implementation)
+
+| Feature / Domain | Client UI & Components | Client State & Storage | Server Module (Route / Service) | Key Invariant / Verification |
+|---|---|---|---|---|
+| **Auth & Session** | `client/src/app/login/page.tsx:L20`<br>`client/src/components/layout/RoleGuard.tsx:L14` | `client/src/providers/auth-provider.tsx:L45`<br>`client/src/lib/api-client.ts:L38`<br>Storage: `rat_token`, `rat_user` | `server/src/modules/auth/auth.routes.ts:L10`<br>`server/src/modules/auth/auth.service.ts:L6` | Verified via `GET /api/auth/me`. Rehydrates on mount before guards run. |
+| **Visits / Gate** | `client/src/app/gate/page.tsx:L10`<br>`client/src/components/gate/VehicleForm.tsx:L12` | `client/src/hooks/useVisits.ts:L1`<br>`client/src/services/visits.ts:L1` | `server/src/modules/visits/visits.routes.ts:L16`<br>`server/src/modules/visits/visits.service.ts:L20` | Stock check at gate is warn-only. Recalculates status upon checkout/cancel. |
+| **Shed & Queue** | `client/src/app/shed/page.tsx:L25`<br>`client/src/components/shed/ConfirmDialog.tsx:L10` | `client/src/hooks/useShedQueue.ts:L1`<br>`client/src/services/sheds.ts:L1` | `server/src/modules/sheds/sheds.routes.ts:L10`<br>`server/src/modules/visits/visits.service.ts:L65` (`confirmLine`) | Transactional decrement under `rowLocks.ts`. `OUT` ledger row written synchronously. |
+| **Inventory & Stock** | `client/src/app/admin/page.tsx:L20`<br>`client/src/components/admin/InventoryTable.tsx:L10` | `client/src/hooks/useItems.ts:L1`<br>`client/src/services/items.ts:L1` | `server/src/modules/items/items.routes.ts:L15`<br>`server/src/modules/items/items.service.ts:L20` | `SUM(ledger.delta) == currentStock`. Stock-in / adjust write ledger rows. |
+| **User Management** | `client/src/app/admin/page.tsx:L35`<br>`client/src/components/admin/UsersTable.tsx:L15` | `client/src/hooks/useUsers.ts:L1`<br>`client/src/services/users.ts:L1` | `server/src/modules/users/users.routes.ts:L14`<br>`server/src/modules/users/users.service.ts:L15` | Admin only (`requireRole("ADMIN")`). Disabled user gets immediate `403 ACCOUNT_DISABLED`. |
+| **Logs & Export** | `client/src/app/admin/page.tsx:L50`<br>`client/src/components/admin/LogsTable.tsx:L10` | `client/src/hooks/useLogs.ts:L1`<br>`client/src/services/logs.ts:L1` | `server/src/modules/logs/logs.routes.ts:L15`<br>`server/src/modules/logs/logs.service.ts:L20` | Filtered by vehicle/item/shed/dates (IST day bounds). Exports CSV and `.xlsx`. |
+| **Dashboard** | `client/src/app/admin/page.tsx:L15`<br>`client/src/components/admin/DashboardCards.tsx:L10` | `client/src/hooks/useDashboard.ts:L1` | `server/src/modules/dashboard/dashboard.routes.ts:L10`<br>`server/src/modules/dashboard/dashboard.service.ts:L10` | Vehicles inside, pending lines per shed, low stock (`currentStock <= reorderLevel`). |
+| **Sockets & Sync** | `client/src/providers/socket-provider.tsx:L36`<br>`client/src/components/pwa/ConnectionBadge.tsx:L5` | `client/src/lib/socket-client.ts:L15`<br>`client/src/hooks/useSocket.ts:L5` | `server/src/config/socket.ts:L20` | Sockets emit after DB commit. Triggers TanStack `queryClient.invalidateQueries()`. |
+
+## Symptom → Triage Map (Debug in 3 reads)
+
+| Symptom / Issue | Primary Files to Inspect | Scope & Blast Radius | What to check |
+|---|---|---|---|
+| **Logout on page refresh** | `client/src/providers/auth-provider.tsx`<br>`client/src/components/layout/RoleGuard.tsx`<br>`client/src/app/login/page.tsx` | **Client only** (backend `/api/auth/me` exists and is complete; do not touch server or sockets) | Read session from `localStorage` on mount, gate guards on `initializing`, call `meRequest()`. |
+| **Account disabled but still acting** | `server/src/middlewares/auth.ts`<br>`client/src/lib/api-client.ts`<br>`client/src/providers/auth-provider.tsx` | **Client fetch + Server auth** (socket handles `session.expired` automatically) | Verify `auth.ts` re-reads user row and returns `403 ACCOUNT_DISABLED`; verify `api-client.ts` catches 403 and fires `onUnauthorized()`. |
+| **Stale list / Screen not updating after change** | `client/src/providers/socket-provider.tsx`<br>`server/src/config/socket.ts`<br>`client/src/lib/query-keys.ts` | **Client cache invalidation** (REST DB writes are already synchronous) | Verify server emitted event after transaction commit; verify `socket-provider.tsx` invalidates correct queryKey. |
+| **Shed confirmation fails or race condition** | `server/src/modules/visits/visits.service.ts` (`confirmLine`)<br>`server/src/utils/rowLocks.ts`<br>`client/src/components/shed/ConfirmDialog.tsx` | **Server transaction** | Check lock order (visit → line → item); ensure `P2034` deadlock retry; verify double-confirm returns 409. |
+| **403 CROSS_SHED error** | `server/src/middlewares/auth.ts`<br>`server/src/modules/sheds/sheds.service.ts`<br>`server/src/modules/items/items.service.ts` | **Server authorization only** | Ensure token contains `shedCode`; check fail-closed check comparing user shed with requested resource. |
+| **Stock numbers mismatch ledger** | `server/src/utils/rowLocks.ts`<br>`server/src/modules/items/items.service.ts`<br>`server/tests/ledger-invariant.test.ts` | **Server database only** | Run ledger invariant test; check if any path modifies `item.currentStock` without inserting a `stockLedger` row in the same transaction. |
+
 ## Entry points
 
 | File | Purpose |

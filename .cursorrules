@@ -1,0 +1,8 @@
+# Rules for AI Agent in this repository
+
+You MUST follow these rules on every prompt:
+1. ALWAYS read `index.md` first before executing any file discovery, explore subagents, or search tools.
+2. If fixing a bug, jump to the Symptom Triage Map at `index.md:L117` and inspect ONLY the primary files listed. Respect the "Scope & Blast Radius" column so you do not waste tokens sweeping unrelated modules.
+3. If implementing or editing a feature, jump to the Code Map at `index.md:L100`.
+4. Only run broad greps or directory searches if the feature or symptom is completely missing from `index.md`.
+

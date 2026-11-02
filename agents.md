@@ -2,14 +2,18 @@
 
 > Map: @index.md · Truth: @docs/decisions_made.md, @docs/project-status.md
 
-Instructions for anyone (human or agent) changing the Realtime Ammo Tracking (RAT) POC. What the product is: `@readme.md`.
+## 🚨 GATE 0: READ @index.md BEFORE RUNNING ANY TOOLS
+**DO NOT launch explore subagents or run blind find/grep sweeps on your first turn.**
+1. Open `@index.md` first.
+2. If fixing a bug, jump directly to **Symptom → Triage Map** at `@index.md:L117` to find the exact 3 files to inspect.
+3. If building or touching a domain, check **Code Map** at `@index.md:L100` for exact `file:line` entry points.
+4. Only if the symptom or feature is completely absent from `@index.md` may you run grep or file searches.
+*Skipping this rule wastes 80k+ tokens on redundant exploration sweeps.*
 
 ## Read order
 
 1. `@index.md` — topic → `file:line`. Start here instead of scanning the tree.
-2. `@docs/decisions_made.md` (what it must do) and `@docs/project-status.md` (what actually works,
-   open gaps) — these override anything you remember and any stale doc. If code disagrees with
-   `decisions_made.md`, the decision file is the target and `project-status.md` should list the gap.
+2. `@docs/decisions_made.md` (target spec) and `@docs/project-status.md` (what actually works vs open gaps) — these override anything you remember and any stale doc. If code disagrees with `decisions_made.md`, the decision file is the target and `project-status.md` should list the gap.
 3. Only the reference doc for the area you are touching — see the doc map below.
 
 ## Repo layout
@@ -39,12 +43,15 @@ docs/    reference set + the two truth files
   (`403 CROSS_SHED`) when the claim is missing. Client checks are UX only.
 - **No secrets in logs** — no tokens, passwords, `DATABASE_URL`, `JWT_SECRET` or `SEED_*` values anywhere.
 
+## System Architecture & Code Map
+
+> The single authoritative Code Map and Symptom Triage Table live in `@index.md:L100`. Refer to `@index.md` for exact `file:line` references, state storage, and symptom-to-file lookup.
+
 ## Frontend conventions
 
 - **Server state is TanStack Query.** Keys in `src/lib/query-keys.ts`; mutations invalidate keys, never
   hand-patch. Socket events are invalidation hints only. Client state is context only; no Redux/Zustand.
-- **Token in memory only** (`auth-provider`), never `localStorage`/`sessionStorage` — a refresh relogins.
-  All HTTP through `src/lib/api-client.ts` + `src/services/*`.
+- **Session persistence contract:** See `@index.md:L104`.
 - Functional components, no classes, no manual memoisation (React Compiler is on); zod forms in
   `src/validations/`. Tablet-first: large targets, both orientations, visible offline state.
 

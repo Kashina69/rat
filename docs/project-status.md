@@ -13,6 +13,7 @@ working-tree change** (`git status` shows the pass). Target: @docs/decisions_mad
 | Area | State | Where |
 | --- | --- | --- |
 | Login / `me`, bcrypt 12 rounds, JWT ~8 h, role guard, DB errors not masked as 401 | Works | `server/src/modules/auth/`, `server/src/middlewares/auth.ts`, `requireRole.ts` |
+| Client session persistence across refresh (`rat_token`, `rat_user` in `localStorage`, `meRequest()` verification, `initializing` state) | Works | `client/src/providers/auth-provider.tsx`, `client/src/lib/api-client.ts`, `client/src/components/layout/RoleGuard.tsx` |
 | Visit registration with requirement lines, per-item shed routing, status recalc, cancel visit/line | Works (see open item 4) | `visits.service.ts`, `server/src/utils/visitStatus.ts` |
 | Gate short-stock warning, warn only | Works | `client/src/components/gate/VehicleForm.tsx` |
 | Shed queue + confirm with loaded qty, transactional deduction + one `OUT` ledger row, negative stock allowed, `1..requested`, double confirm `409` no-op; strict checkout; `P2034` deadlock retry | Works; `concurrent-confirm`, `stock-race` tests pass | `visits.service.ts` `confirmLine` / `checkoutVisit`, `rowLocks.ts`, `retry.ts` |

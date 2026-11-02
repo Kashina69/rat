@@ -16,13 +16,14 @@ Next 16.4.3 (App Router, React 19, React Compiler): for routing, caching, `manif
 ## Non-negotiables
 - **Server state = TanStack Query.** Keys in `src/lib/query-keys.ts`; mutations invalidate keys and never
   hand-patch the cache. Socket events are hints only; clear the cache on logout.
-- **Token in memory only** (auth context). No `localStorage`/`sessionStorage`; a refresh or cold launch
-  means relogin, by design. All HTTP through `src/lib/api-client.ts` + `src/services/*`.
+- **Session persistence contract:** See `@../index.md:L104`.
 - Read `code` from `{ error: { code, message } }`, not the message; show it via Sonner. `403 ACCOUNT_DISABLED` ends the session — do not retry.
 - Functional components, no classes, no manual memoisation. Tablet-first: large targets, both
   orientations, visible offline state, confirm destructive actions. Role routing is UX only.
 - `NEXT_PUBLIC_*` URLs are inlined at build time — Docker build args, not runtime env. `public/sw.js` is
   hand-written: never cache API, auth or socket traffic, and install never calls `skipWaiting()`.
+
+> Full code map & symptom triage table live at `@../index.md:L100`.
 
 ## Commands
 ```bash
